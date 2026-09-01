@@ -1,0 +1,3 @@
+C:\msys64\clang64\bin\cmake.exe -E rm -f CMakeFiles\myproject.dir/objects.a
+C:\msys64\clang64\bin\llvm-ar.exe qc CMakeFiles\myproject.dir/objects.a @CMakeFiles\myproject.dir\objects1.rsp
+C:\msys64\clang64\bin\clang++.exe -g -Wl,--whole-archive CMakeFiles\myproject.dir/objects.a -Wl,--no-whole-archive -o myproject.exe -Wl,--out-implib,libmyproject.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\myproject.dir\linkLibs.rsp

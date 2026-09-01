@@ -1,0 +1,3 @@
+C:/msys64/home/kisie/Work/FastHTMLparse/build/CMakeFiles/myproject.dir
+C:/msys64/home/kisie/Work/FastHTMLparse/build/CMakeFiles/edit_cache.dir
+C:/msys64/home/kisie/Work/FastHTMLparse/build/CMakeFiles/rebuild_cache.dir
