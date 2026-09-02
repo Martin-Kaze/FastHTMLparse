@@ -1,8 +1,0 @@
-[
-{
-  "directory": "C:/msys64/home/kisie/Work/FastHTMLparse/build",
-  "command": "C:\\msys64\\clang64\\bin\\clang++.exe   -g -std=gnu++20 -o CMakeFiles\\myproject.dir\\src\\main.cpp.obj -c C:\\msys64\\home\\kisie\\Work\\FastHTMLparse\\src\\main.cpp",
-  "file": "C:/msys64/home/kisie/Work/FastHTMLparse/src/main.cpp",
-  "output": "CMakeFiles/myproject.dir/src/main.cpp.obj"
-}
-]
