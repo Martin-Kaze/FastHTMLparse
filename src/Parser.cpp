@@ -1,13 +1,79 @@
 #include "Parser.hpp"
 #include <iostream>
 
-void Parser::parsring( const char* buf, size_t size ){
+void Parser::parsring(const char *buf, size_t size)
+{
+    std::string tag_name;
+    
 
-    bool serach = false;
-    int how_much_buttons = 3;
-    for( size_t i =0; i< size; i++){
+    for (size_t i = 0; i < size; i++){
+
         char c = *(buf + i);
-        std::cout<<c;
 
+        switch (state)
+        {
+
+        case State::DATA:
+
+            if (c == '<')
+            {
+                state = State::TAG_OPEN;
+            }
+            break;
+
+        case State::TAG_OPEN:
+
+            if (c == '/')
+            {
+                closing = true;
+                state = State::TAG_NAME;
+            }
+            else
+            {
+                closing = false;
+                state = State::TAG_NAME;
+                tag_name.push_back(c);
+            }
+            break;
+
+        case State::TAG_NAME:
+            if (c == '>')
+            {
+                state = State::DATA;
+                tag_name.push_back(' ');
+            }
+            else if (c == ' ')
+            {
+                state = State::ATTRIBUTE_NAME;
+                tag_name.push_back(' ');
+            }
+            else{
+                tag_name.push_back(c);
+            }
+            break;
+
+        case State::ATTRIBUTE_NAME:
+            if (c == '=')
+            {
+                state = State::ATTRIBUTE_VALUE;
+            }
+            else if (c == '>')
+            {
+                state = State::DATA;
+            }
+            break;
+
+        case State::ATTRIBUTE_VALUE:
+            if (c == '>')
+            {
+                state = State::DATA;
+            }
+            break;
+        }
+    }
+
+    std::cout << "Hi: ";
+    for ( auto it :tag_name ){
+        std::cout<< it;
     }
 }

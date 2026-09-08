@@ -15,10 +15,16 @@ int main() {
     Parser parser;
     auto start = std::chrono::steady_clock::now();
 
+
+
     std::ifstream file(
-    "C:\\Users\\kisie\\Desktop\\test2.html",
+    "C:\\Users\\manvi\\Desktop\\test.html",
     std::ios::binary );
 
+    if (!file) {
+    std::cout << "FILE NOT OPEN\n";
+    return 1;
+}
     
     char buf[64 * 1024];
 
@@ -32,9 +38,9 @@ int main() {
     auto end = std::chrono::steady_clock::now();
     auto time = std::chrono::duration<double>(end - start);
 
-    
+    std::cout << std::endl;
     std::cout << time.count() << " seconds\n";
-
+    
 
     return 0;
 }
