@@ -1,5 +1,6 @@
 #pragma once
 #include <cstddef>
+#include <string>
 
 class Parser
 {
@@ -15,6 +16,7 @@ class Parser
 
     State state = State::DATA;
     bool closing = false;
+    std::string tag_names;
 
 public:
     void parsring(const char *buf, size_t size);

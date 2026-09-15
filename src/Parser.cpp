@@ -3,10 +3,9 @@
 
 void Parser::parsring(const char *buf, size_t size)
 {
-    std::string tag_name;
-    
 
-    for (size_t i = 0; i < size; i++){
+    for (size_t i = 0; i < size; i++)
+    {
 
         char c = *(buf + i);
 
@@ -32,7 +31,7 @@ void Parser::parsring(const char *buf, size_t size)
             {
                 closing = false;
                 state = State::TAG_NAME;
-                tag_name.push_back(c);
+                tag_names.push_back(c);
             }
             break;
 
@@ -40,15 +39,16 @@ void Parser::parsring(const char *buf, size_t size)
             if (c == '>')
             {
                 state = State::DATA;
-                tag_name.push_back(' ');
+                tag_names.push_back(' ');
             }
             else if (c == ' ')
             {
                 state = State::ATTRIBUTE_NAME;
-                tag_name.push_back(' ');
+                tag_names.push_back(' ');
             }
-            else{
-                tag_name.push_back(c);
+            else
+            {
+                tag_names.push_back(c);
             }
             break;
 
@@ -73,7 +73,8 @@ void Parser::parsring(const char *buf, size_t size)
     }
 
     std::cout << "Hi: ";
-    for ( auto it :tag_name ){
-        std::cout<< it;
+    for (auto it : tag_names)
+    {
+        std::cout << it;
     }
 }
