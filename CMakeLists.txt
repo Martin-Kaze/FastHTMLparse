@@ -31,8 +31,10 @@ enable_testing()
 add_executable(selector_tests
     tests/SelectorLexerTests.cpp
     tests/SelectorParserTests.cpp
+    tests/ParserTests.cpp
     src/Selector/SelectorLexer.cpp
     src/Selector/SelectorParser.cpp
+    src/Parser.cpp
 )
 
 target_include_directories(selector_tests PRIVATE
