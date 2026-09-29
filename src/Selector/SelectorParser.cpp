@@ -19,22 +19,30 @@ void SelectorParser::parsring(SelectorLexer &selectorLexer)
 
         if (tokens[i].type == SelectorLexer::TokenType::IDENT)
         {
-            part.tag = std::string(tokens[i].ptr, tokens[i].len);
+            part.tag = {tokens[i].ptr, tokens[i].len};
             i++;
         }
 
-        if (i < token_count && tokens[i].type == SelectorLexer::TokenType::HASH)
+        while (i < token_count)
         {
-            i++;
-            part.id = std::string(tokens[i].ptr, tokens[i].len);
-            i++;
-        }
 
-        if (i < token_count && tokens[i].type == SelectorLexer::TokenType::DOT)
-        {
-            i++;
-            part.class_name = std::string(tokens[i].ptr, tokens[i].len);
-            i++;
+            if ( tokens[i].type == SelectorLexer::TokenType::HASH)
+            {
+                i++;
+                part.id = {tokens[i].ptr, tokens[i].len};
+                i++;
+            }
+
+            else if (tokens[i].type == SelectorLexer::TokenType::DOT)
+            {
+                i++;
+                part.class_name = {tokens[i].ptr, tokens[i].len};
+                i++;
+            }
+            else
+            {
+                break;
+            }
         }
 
         if (i < token_count &&
@@ -49,11 +57,9 @@ void SelectorParser::parsring(SelectorLexer &selectorLexer)
             current_relation = SelectorParser::Relation::DESCENDANT;
         }
     }
-
-
 }
 
-const SelectorParser::SelectorPart* SelectorParser::get_parts() const
+const SelectorParser::SelectorPart *SelectorParser::get_parts() const
 {
     return parts;
 }

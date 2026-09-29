@@ -1,6 +1,5 @@
 #pragma once
 #include <cstddef>
-#include <string>
 #include "SelectorLexer.hpp"
 
 class SelectorParser
@@ -14,21 +13,25 @@ public:
         DESCENDANT
     };
 
-    struct SelectorPart
+    struct StringView
     {
-        std::string tag;
-        std::string id;
-        std::string class_name;
-        Relation relation;
+        const char *ptr;
+        size_t length;
     };
 
-   const SelectorPart* get_parts() const;
-size_t get_count() const;
+    struct SelectorPart
+    {
+        StringView tag{};
+        StringView id{};
+        StringView class_name{};
+        Relation relation = Relation::ROOT;
+    };
 
+    const SelectorPart *get_parts() const;
+    size_t get_count() const;
     void parsring(SelectorLexer &selectorLexer);
 
 private:
-
     SelectorPart parts[16];
     size_t count = 0;
 };

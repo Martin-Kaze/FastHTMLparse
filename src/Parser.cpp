@@ -1,8 +1,27 @@
 #include "Parser.hpp"
 #include <iostream>
 
-void Parser::parsring(const char *buf, size_t size)
+size_t Parser::get_tag_match_count() const
 {
+    return tag_match_count;
+};
+
+size_t Parser::get_attr_val_match_count() const
+{
+    return attr_value_match_count;
+};
+
+size_t Parser::get_attr_match_count() const
+{
+    return attribute_match_count;
+};
+
+void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorParser)
+{
+    auto parts = selectorParser.get_parts();
+
+    bool needs_id = parts[0].id.length > 0;
+    bool needs_class = parts[0].class_name.length > 0;
 
     for (size_t i = 0; i < size; i++)
     {
@@ -17,6 +36,9 @@ void Parser::parsring(const char *buf, size_t size)
             if (c == '<')
             {
                 state = State::TAG_OPEN;
+                tag_position = 0;
+                tag_matches = true;
+                closing = false;
             }
             break;
 
@@ -30,51 +52,193 @@ void Parser::parsring(const char *buf, size_t size)
             else
             {
                 closing = false;
+
+                if (tag_position >= parts[0].tag.length ||
+                    c != parts[0].tag.ptr[tag_position])
+                {
+                    tag_matches = false;
+                }
+
+                tag_position++;
                 state = State::TAG_NAME;
-                tag_names.push_back(c);
             }
+
             break;
 
         case State::TAG_NAME:
-            if (c == '>')
+            if (c == '>' || c == ' ')
             {
-                state = State::DATA;
-                tag_names.push_back(' ');
-            }
-            else if (c == ' ')
-            {
-                state = State::ATTRIBUTE_NAME;
-                tag_names.push_back(' ');
+                if (!closing &&
+                    tag_matches &&
+                    tag_position == parts[0].tag.length)
+                {
+                    tag_match_count++;
+                }
+
+                if (c == '>')
+                {
+                    state = State::DATA;
+                }
+                else
+                {
+                    attribute_position = 0;
+                    attribute_matches = false;
+                    candidate_attribute = Attribute::UNKNOWN;
+                    currect_attribute = Attribute::UNKNOWN;
+                    state = State::ATTRIBUTE_NAME;
+                }
             }
             else
             {
-                tag_names.push_back(c);
+                if (!closing && tag_matches)
+                {
+                    if (tag_position >= parts[0].tag.length ||
+                        c != parts[0].tag.ptr[tag_position])
+                    {
+                        tag_matches = false;
+                    }
+                }
+
+                tag_position++;
             }
+
             break;
 
         case State::ATTRIBUTE_NAME:
+
+            if (c == ' ')
+            {
+                break;
+            }
+
             if (c == '=')
             {
+                if (attribute_matches)
+                {
+                    currect_attribute = candidate_attribute;
+                    attribute_match_count++;
+                }
+                else
+                {
+                    currect_attribute = Attribute::UNKNOWN;
+                }
+
+                value_position = 0;
+                state = State::ATTRIBUTE_VALUE_START;
+
+                break;
+            }
+
+            if (attribute_position == 0)
+            {
+
+                // potential id attribute
+                if (needs_id && c == 'i')
+                {
+                    candidate_attribute = Attribute::ID;
+                    attribute_matches = true;
+                }
+                else if (needs_class && c == 'c')
+                {
+                    candidate_attribute = Attribute::CLASSNAME;
+                    attribute_matches = true;
+                }
+                else
+                {
+                    candidate_attribute = Attribute::UNKNOWN;
+                    attribute_matches = false;
+                }
+                attribute_position++;
+                break;
+            }
+            // verifying ID
+            if (candidate_attribute == Attribute::ID)
+            {
+
+                if (attribute_position >= 2 || c != "id"[attribute_position])
+                {
+                    attribute_matches = false;
+                }
+            }
+
+            // verifying CLASS
+            else if (candidate_attribute == Attribute::CLASSNAME)
+            {
+
+                if (attribute_position >= 5 || c != "class"[attribute_position])
+                {
+                    attribute_matches = false;
+                }
+            }
+            attribute_position++;
+            break;
+
+        case State::ATTRIBUTE_VALUE_START:
+
+            if (c == '"' || c == '\'')
+            {
+                quote_char = c;
+                value_position = 0;
                 state = State::ATTRIBUTE_VALUE;
             }
-            else if (c == '>')
-            {
-                state = State::DATA;
-            }
+
             break;
 
         case State::ATTRIBUTE_VALUE:
-            if (c == '>')
+
+            if (c == quote_char)
             {
-                state = State::DATA;
+                if (attr_value_matches)
+                {
+                    if (currect_attribute == Attribute::ID &&
+                        value_position == parts[0].id.length)
+                    {
+                        attr_value_match_count++;
+                    }
+                    else if (currect_attribute == Attribute::CLASSNAME &&
+                             value_position == parts[0].class_name.length)
+                    {
+                        attr_value_match_count++;
+                    }
+                }
+
+                attribute_position = 0;
+                value_position = 0;
+
+                attribute_matches = false;
+                attr_value_matches = true;
+
+                candidate_attribute = Attribute::UNKNOWN;
+                currect_attribute = Attribute::UNKNOWN;
+
+                state = State::ATTRIBUTE_NAME;
+
+                break;
             }
+
+            if (currect_attribute == Attribute::ID)
+            {
+                if (value_position >= parts[0].id.length ||
+                    c != parts[0].id.ptr[value_position])
+                {
+                    attr_value_matches = false;
+                }
+
+                value_position++;
+
+            }
+            else if (currect_attribute == Attribute::CLASSNAME)
+            {
+                if (value_position >= parts[0].class_name.length ||
+                    c != parts[0].class_name.ptr[value_position])
+                {
+                    attr_value_matches = false;
+                }
+
+                value_position++;
+            }
+
             break;
         }
-    }
-
-    std::cout << "Hi: ";
-    for (auto it : tag_names)
-    {
-        std::cout << it;
     }
 }
