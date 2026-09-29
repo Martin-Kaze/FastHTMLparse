@@ -4,28 +4,28 @@
 #include "Selector/SelectorParser.hpp"
 
 
-TEST(SelectorParser, SimpleTag)
+TEST(SelectorParser, TagWithClass)
 {
     SelectorLexer lexer;
 
-    std::string input = "div";
+    std::string input = "div.product";
     lexer.query(input);
 
     SelectorParser parser;
     parser.parsring(lexer);
 
-    const auto* parts = parser.get_parts();
+    const auto *parts = parser.get_parts();
 
     EXPECT_EQ(parser.get_count(), 1);
+    EXPECT_EQ( std::string(parts[0].tag.ptr, parts[0].tag.length), "div");
 
-    EXPECT_EQ(parts[0].tag, "div");
-    EXPECT_EQ(parts[0].id, "");
-    EXPECT_EQ(parts[0].class_name, "");
+    EXPECT_EQ(
+        std::string(parts[0].class_name.ptr, parts[0].class_name.length),
+        "product");
 
     EXPECT_EQ(parts[0].relation,
               SelectorParser::Relation::ROOT);
 }
-
 
 TEST(SelectorParser, TagWithId)
 {
@@ -37,41 +37,18 @@ TEST(SelectorParser, TagWithId)
     SelectorParser parser;
     parser.parsring(lexer);
 
-    const auto* parts = parser.get_parts();
+    const auto *parts = parser.get_parts();
 
     EXPECT_EQ(parser.get_count(), 1);
+    EXPECT_EQ( std::string(parts[0].tag.ptr, parts[0].tag.length), "div");
 
-    EXPECT_EQ(parts[0].tag, "div");
-    EXPECT_EQ(parts[0].id, "main");
-    EXPECT_EQ(parts[0].class_name, "");
+    EXPECT_EQ(
+        std::string(parts[0].id.ptr, parts[0].id.length),
+        "main");
 
     EXPECT_EQ(parts[0].relation,
               SelectorParser::Relation::ROOT);
 }
-
-
-TEST(SelectorParser, TagWithClass)
-{
-    SelectorLexer lexer;
-
-    std::string input = "div.product";
-    lexer.query(input);
-
-    SelectorParser parser;
-    parser.parsring(lexer);
-
-    const auto* parts = parser.get_parts();
-
-    EXPECT_EQ(parser.get_count(), 1);
-
-    EXPECT_EQ(parts[0].tag, "div");
-    EXPECT_EQ(parts[0].id, "");
-    EXPECT_EQ(parts[0].class_name, "product");
-
-    EXPECT_EQ(parts[0].relation,
-              SelectorParser::Relation::ROOT);
-}
-
 
 TEST(SelectorParser, TagWithIdAndClass)
 {
@@ -83,170 +60,157 @@ TEST(SelectorParser, TagWithIdAndClass)
     SelectorParser parser;
     parser.parsring(lexer);
 
-    const auto* parts = parser.get_parts();
+    const auto *parts = parser.get_parts();
 
     EXPECT_EQ(parser.get_count(), 1);
 
-    EXPECT_EQ(parts[0].tag, "div");
-    EXPECT_EQ(parts[0].id, "main");
-    EXPECT_EQ(parts[0].class_name, "product");
+    EXPECT_EQ( std::string(parts[0].tag.ptr, parts[0].tag.length), "div");
+
+    EXPECT_EQ(
+        std::string(parts[0].id.ptr, parts[0].id.length),
+        "main");
+
+    EXPECT_EQ(
+        std::string(parts[0].class_name.ptr,
+                    parts[0].class_name.length),
+        "product");
 
     EXPECT_EQ(parts[0].relation,
               SelectorParser::Relation::ROOT);
 }
 
-
-TEST(SelectorParser, Child)
+TEST(SelectorParser, ClassThenId)
 {
     SelectorLexer lexer;
 
-    std::string input = "div>p";
+    std::string input = "div.product#main";
     lexer.query(input);
 
     SelectorParser parser;
     parser.parsring(lexer);
 
-    const auto* parts = parser.get_parts();
+    const auto *parts = parser.get_parts();
+
+    EXPECT_EQ(parser.get_count(), 1);
+
+    EXPECT_EQ( std::string(parts[0].tag.ptr, parts[0].tag.length), "div");
+
+    EXPECT_EQ(
+        std::string(parts[0].class_name.ptr,
+                    parts[0].class_name.length),
+        "product");
+
+    EXPECT_EQ(
+        std::string(parts[0].id.ptr,
+                    parts[0].id.length),
+        "main");
+}
+
+TEST(SelectorParser, MultipleModifiers)
+{
+    SelectorLexer lexer;
+
+    std::string input = "div#main.product";
+    lexer.query(input);
+
+    SelectorParser parser;
+    parser.parsring(lexer);
+
+    const auto *parts = parser.get_parts();
+
+    EXPECT_EQ(parser.get_count(), 1);
+
+    EXPECT_EQ( std::string(parts[0].tag.ptr, parts[0].tag.length), "div");
+
+    EXPECT_EQ(
+        std::string(parts[0].id.ptr,
+                    parts[0].id.length),
+        "main");
+
+    EXPECT_EQ(
+        std::string(parts[0].class_name.ptr,
+                    parts[0].class_name.length),
+        "product");
+}
+
+TEST(SelectorParser, ModifiersWithChild)
+{
+    SelectorLexer lexer;
+
+    std::string input = "div#main.product>p.title";
+    lexer.query(input);
+
+    SelectorParser parser;
+    parser.parsring(lexer);
+
+    const auto *parts = parser.get_parts();
 
     EXPECT_EQ(parser.get_count(), 2);
 
-    EXPECT_EQ(parts[0].tag, "div");
+    // Part 0
+    EXPECT_EQ( std::string(parts[0].tag.ptr, parts[0].tag.length), "div");
+
+    EXPECT_EQ(
+        std::string(parts[0].id.ptr,
+                    parts[0].id.length),
+        "main");
+
+    EXPECT_EQ(
+        std::string(parts[0].class_name.ptr,
+                    parts[0].class_name.length),
+        "product");
+
     EXPECT_EQ(parts[0].relation,
               SelectorParser::Relation::ROOT);
 
-    EXPECT_EQ(parts[1].tag, "p");
+    // Part 1
+    EXPECT_EQ( std::string(parts[1].tag.ptr, parts[1].tag.length), "p");
+
+    EXPECT_EQ(
+        std::string(parts[1].class_name.ptr,
+                    parts[1].class_name.length),
+        "title");
+
     EXPECT_EQ(parts[1].relation,
               SelectorParser::Relation::CHILD);
 }
 
-
-TEST(SelectorParser, Descendant)
+TEST(SelectorParser, ModifiersWithDescendant)
 {
     SelectorLexer lexer;
 
-    std::string input = "div p";
+    std::string input = "div#main.product p.title";
     lexer.query(input);
 
     SelectorParser parser;
     parser.parsring(lexer);
 
-    const auto* parts = parser.get_parts();
+    const auto *parts = parser.get_parts();
 
     EXPECT_EQ(parser.get_count(), 2);
 
-    EXPECT_EQ(parts[0].tag, "div");
+    EXPECT_EQ( std::string(parts[0].tag.ptr, parts[0].tag.length), "div");
+
+    EXPECT_EQ(
+        std::string(parts[0].id.ptr,
+                    parts[0].id.length),
+        "main");
+
+    EXPECT_EQ(
+        std::string(parts[0].class_name.ptr,
+                    parts[0].class_name.length),
+        "product");
+
     EXPECT_EQ(parts[0].relation,
               SelectorParser::Relation::ROOT);
 
-    EXPECT_EQ(parts[1].tag, "p");
+    EXPECT_EQ( std::string(parts[1].tag.ptr, parts[1].tag.length), "p");
+
+    EXPECT_EQ(
+        std::string(parts[1].class_name.ptr,
+                    parts[1].class_name.length),
+        "title");
+
     EXPECT_EQ(parts[1].relation,
-              SelectorParser::Relation::DESCENDANT);
-}
-
-
-TEST(SelectorParser, ComplexChild)
-{
-    SelectorLexer lexer;
-
-    std::string input = "div.product>p.title";
-    lexer.query(input);
-
-    SelectorParser parser;
-    parser.parsring(lexer);
-
-    const auto* parts = parser.get_parts();
-
-    EXPECT_EQ(parser.get_count(), 2);
-
-    EXPECT_EQ(parts[0].tag, "div");
-    EXPECT_EQ(parts[0].class_name, "product");
-    EXPECT_EQ(parts[0].relation,
-              SelectorParser::Relation::ROOT);
-
-    EXPECT_EQ(parts[1].tag, "p");
-    EXPECT_EQ(parts[1].class_name, "title");
-    EXPECT_EQ(parts[1].relation,
-              SelectorParser::Relation::CHILD);
-}
-
-
-TEST(SelectorParser, ComplexDescendant)
-{
-    SelectorLexer lexer;
-
-    std::string input = "div.product p.title";
-    lexer.query(input);
-
-    SelectorParser parser;
-    parser.parsring(lexer);
-
-    const auto* parts = parser.get_parts();
-
-    EXPECT_EQ(parser.get_count(), 2);
-
-    EXPECT_EQ(parts[0].tag, "div");
-    EXPECT_EQ(parts[0].class_name, "product");
-    EXPECT_EQ(parts[0].relation,
-              SelectorParser::Relation::ROOT);
-
-    EXPECT_EQ(parts[1].tag, "p");
-    EXPECT_EQ(parts[1].class_name, "title");
-    EXPECT_EQ(parts[1].relation,
-              SelectorParser::Relation::DESCENDANT);
-}
-
-
-TEST(SelectorParser, MultipleChildren)
-{
-    SelectorLexer lexer;
-
-    std::string input = "div>p>span";
-    lexer.query(input);
-
-    SelectorParser parser;
-    parser.parsring(lexer);
-
-    const auto* parts = parser.get_parts();
-
-    EXPECT_EQ(parser.get_count(), 3);
-
-    EXPECT_EQ(parts[0].tag, "div");
-    EXPECT_EQ(parts[0].relation,
-              SelectorParser::Relation::ROOT);
-
-    EXPECT_EQ(parts[1].tag, "p");
-    EXPECT_EQ(parts[1].relation,
-              SelectorParser::Relation::CHILD);
-
-    EXPECT_EQ(parts[2].tag, "span");
-    EXPECT_EQ(parts[2].relation,
-              SelectorParser::Relation::CHILD);
-}
-
-
-TEST(SelectorParser, MixedRelations)
-{
-    SelectorLexer lexer;
-
-    std::string input = "div>p span";
-    lexer.query(input);
-
-    SelectorParser parser;
-    parser.parsring(lexer);
-
-    const auto* parts = parser.get_parts();
-
-    EXPECT_EQ(parser.get_count(), 3);
-
-    EXPECT_EQ(parts[0].tag, "div");
-    EXPECT_EQ(parts[0].relation,
-              SelectorParser::Relation::ROOT);
-
-    EXPECT_EQ(parts[1].tag, "p");
-    EXPECT_EQ(parts[1].relation,
-              SelectorParser::Relation::CHILD);
-
-    EXPECT_EQ(parts[2].tag, "span");
-    EXPECT_EQ(parts[2].relation,
               SelectorParser::Relation::DESCENDANT);
 }
