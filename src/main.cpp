@@ -25,7 +25,7 @@ int main()
     while (file.read(buf, sizeof(buf)) || file.gcount())
     {
         size_t n = file.gcount();
-        parser.parsring(buf, n);
+        //parser.parsring(buf, n);
     }
 
     std::string eilute;
