@@ -452,3 +452,43 @@ TEST(ParserTest, WrongValueAcrossChunks)
     EXPECT_EQ(parser.get_attr_match_count(), 1);
     EXPECT_EQ(parser.get_attr_val_match_count(), 0);
 }
+
+TEST(ParserTest, FullSelectorMatches)
+{
+    SelectorLexer lexer;
+
+    std::string input = "div#good.product";
+    lexer.query(input);
+
+    SelectorParser selector;
+    selector.parsring(lexer);
+
+    Parser parser;
+
+    const char *html =
+        R"(<div id="good" class="product">)";
+
+    parser.parsring(html, strlen(html), selector);
+
+    EXPECT_EQ(parser.get_selector_match_count(), 1);
+}
+
+TEST(ParserTest, FullSelectorDoesNotMatchWrongId)
+{
+    SelectorLexer lexer;
+
+    std::string input = "div#good.product";
+    lexer.query(input);
+
+    SelectorParser selector;
+    selector.parsring(lexer);
+
+    Parser parser;
+
+    const char *html =
+        R"(<div id="bad" class="product">)";
+
+    parser.parsring(html, strlen(html), selector);
+
+    EXPECT_EQ(parser.get_selector_match_count(), 0);
+}

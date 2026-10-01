@@ -16,6 +16,11 @@ size_t Parser::get_attr_match_count() const
     return attribute_match_count;
 };
 
+size_t Parser::get_selector_match_count() const
+{
+    return selector_match_count;
+}
+
 void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorParser)
 {
     auto parts = selectorParser.get_parts();
@@ -39,6 +44,9 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                 tag_position = 0;
                 tag_matches = true;
                 closing = false;
+
+                id_matched = false;
+                class_matched = false;
             }
             break;
 
@@ -77,6 +85,12 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
 
                 if (c == '>')
                 {
+                    if (tag_matches &&
+                        (!needs_id || id_matched) &&
+                        (!needs_class || class_matched))
+                    {
+                        selector_match_count++;
+                    }
                     state = State::DATA;
                 }
                 else
@@ -111,6 +125,18 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                 break;
             }
 
+            if (c == '>')
+            {
+                if (tag_matches &&
+                    (!needs_id || id_matched) &&
+                    (!needs_class || class_matched))
+                {
+                    selector_match_count++;
+                    state = State::DATA;
+        break;
+                }
+            }
+
             if (c == '=')
             {
                 if (attribute_matches)
@@ -124,6 +150,7 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                 }
 
                 value_position = 0;
+                attr_value_matches = true;
                 state = State::ATTRIBUTE_VALUE_START;
 
                 break;
@@ -193,11 +220,13 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                     if (currect_attribute == Attribute::ID &&
                         value_position == parts[0].id.length)
                     {
+                        id_matched = true;
                         attr_value_match_count++;
                     }
                     else if (currect_attribute == Attribute::CLASSNAME &&
                              value_position == parts[0].class_name.length)
                     {
+                        class_matched = true;
                         attr_value_match_count++;
                     }
                 }
@@ -225,7 +254,6 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                 }
 
                 value_position++;
-
             }
             else if (currect_attribute == Attribute::CLASSNAME)
             {
