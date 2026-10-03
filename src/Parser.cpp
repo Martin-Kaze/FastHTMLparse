@@ -21,12 +21,32 @@ size_t Parser::get_selector_match_count() const
     return selector_match_count;
 }
 
+void Parser::finish_tag_set_state()
+{
+    if (closing)
+    {
+        if (depth > 0)
+            depth--;
+    }
+    else
+    {
+        depth++;
+    }
+    state = State::DATA;
+}
+
+void Parser::set_part(size_t k, const SelectorParser::SelectorPart *parts)
+{
+    current_part = k;
+    needs_id = parts[k].id.length > 0;
+    needs_class = parts[k].class_name.length > 0;
+}
+
 void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorParser)
 {
-    auto parts = selectorParser.get_parts();
+    const auto* parts = selectorParser.get_parts();
 
-    bool needs_id = parts[0].id.length > 0;
-    bool needs_class = parts[0].class_name.length > 0;
+    set_part(current_part,parts);
 
     for (size_t i = 0; i < size; i++)
     {
@@ -42,11 +62,26 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
             {
                 state = State::TAG_OPEN;
                 tag_position = 0;
-                tag_matches = true;
                 closing = false;
 
                 id_matched = false;
                 class_matched = false;
+
+                if (current_part == 0)
+                {
+                    tag_matches = true;
+                }
+                else
+                {
+                    if (parent_matched && depth == parent_depth)
+                    {
+                        tag_matches = true;
+                    }
+                    else
+                    {
+                        tag_matches = false;
+                    }
+                }
             }
             break;
 
@@ -61,8 +96,8 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
             {
                 closing = false;
 
-                if (tag_position >= parts[0].tag.length ||
-                    c != parts[0].tag.ptr[tag_position])
+                if (tag_position >= parts[current_part].tag.length ||
+                    c != parts[current_part].tag.ptr[tag_position])
                 {
                     tag_matches = false;
                 }
@@ -78,20 +113,20 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
             {
                 if (!closing &&
                     tag_matches &&
-                    tag_position == parts[0].tag.length)
+                    tag_position == parts[current_part].tag.length)
                 {
                     tag_match_count++;
                 }
 
                 if (c == '>')
                 {
+                    finish_tag_set_state();
                     if (tag_matches &&
                         (!needs_id || id_matched) &&
                         (!needs_class || class_matched))
                     {
                         selector_match_count++;
                     }
-                    state = State::DATA;
                 }
                 else
                 {
@@ -106,8 +141,8 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
             {
                 if (!closing && tag_matches)
                 {
-                    if (tag_position >= parts[0].tag.length ||
-                        c != parts[0].tag.ptr[tag_position])
+                    if (tag_position >= parts[current_part].tag.length ||
+                        c != parts[current_part].tag.ptr[tag_position])
                     {
                         tag_matches = false;
                     }
@@ -127,14 +162,16 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
 
             if (c == '>')
             {
+                finish_tag_set_state();
+
                 if (tag_matches &&
                     (!needs_id || id_matched) &&
                     (!needs_class || class_matched))
                 {
                     selector_match_count++;
-                    state = State::DATA;
-        break;
                 }
+                
+                break;
             }
 
             if (c == '=')
