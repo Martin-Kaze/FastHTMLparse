@@ -22,6 +22,7 @@ class Parser
         HREF,
         SRC
     };
+    
 
     State state = State::DATA;
 
@@ -51,11 +52,25 @@ class Parser
 
     char quote_char = ' ';
 
+    size_t current_part = 0;
+bool parent_matched = false;
+
+size_t depth = 0;
+size_t parent_depth = 0;
+
+bool needs_id = false;
+bool needs_class = false;
+
+void finish_tag_set_state();
+void set_part(size_t k, const SelectorParser::SelectorPart* parts);
 public:
-    void parsring(const char *buf, size_t size, SelectorParser &selectorParser);
+    Parser() : current_part(0), parent_matched(false) {};
+    void parsring(const char *buf, size_t size, SelectorParser& selectorParser);
 
     size_t get_tag_match_count() const;
     size_t get_attr_match_count() const;
     size_t get_attr_val_match_count() const;
     size_t get_selector_match_count() const;
+
+    
 };
