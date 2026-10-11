@@ -492,3 +492,63 @@ TEST(ParserTest, FullSelectorDoesNotMatchWrongId)
 
     EXPECT_EQ(parser.get_selector_match_count(), 0);
 }
+
+TEST(ParserTest, WithBadChild)
+{
+    SelectorLexer lexer;
+
+    std::string input = "div > p";
+    lexer.query(input);
+
+    SelectorParser selector;
+    selector.parsring(lexer);
+
+    Parser parser;
+
+    const char *html =
+        R"(<div id="bad" class="product"> <a> sup baby </a> <div/>)";
+
+    parser.parsring(html, strlen(html), selector);
+
+    EXPECT_EQ(parser.get_selector_match_count(), 1);
+}
+
+TEST(ParserTest, WithGoodChild)
+{
+    SelectorLexer lexer;
+
+    std::string input = "div > p";
+    lexer.query(input);
+
+    SelectorParser selector;
+    selector.parsring(lexer);
+
+    Parser parser;
+
+    const char *html =
+        R"(<div id="bad" class="product"> <p> sup baby </p> <div/>)";
+
+    parser.parsring(html, strlen(html), selector);
+
+    EXPECT_EQ(parser.get_selector_match_count(), 2);
+}
+
+TEST(ParserTest, WithNotGoodChild)
+{
+    SelectorLexer lexer;
+
+    std::string input = "div > p";
+    lexer.query(input);
+
+    SelectorParser selector;
+    selector.parsring(lexer);
+
+    Parser parser;
+
+    const char *html =
+        R"(<div><div><p></p></div></div>)";
+
+    parser.parsring(html, strlen(html), selector);
+
+    EXPECT_EQ(parser.get_selector_match_count(), 1);
+}

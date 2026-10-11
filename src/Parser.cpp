@@ -35,18 +35,25 @@ void Parser::finish_tag_set_state()
     state = State::DATA;
 }
 
-void Parser::set_part(size_t k, const SelectorParser::SelectorPart *parts)
+void Parser::match_tag_char(const char c, const SelectorParser::SelectorPart *parts, size_t count)
 {
-    current_part = k;
-    needs_id = parts[k].id.length > 0;
-    needs_class = parts[k].class_name.length > 0;
+
+    for (size_t k = 0; k < count; k++)
+    {
+        if (!(tag_match_mask & (1u << k)))
+            continue;
+        if (tag_position >= parts[k].tag.length ||
+            c != parts[k].tag.ptr[tag_position])
+        {
+            tag_match_mask = tag_match_mask & ~(1u << k);
+        }
+    }
 }
 
 void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorParser)
 {
-    const auto* parts = selectorParser.get_parts();
-
-    set_part(current_part,parts);
+    const auto *parts = selectorParser.get_parts();
+    size_t count = selectorParser.get_count();
 
     for (size_t i = 0; i < size; i++)
     {
@@ -64,22 +71,22 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                 tag_position = 0;
                 closing = false;
 
-                id_matched = false;
-                class_matched = false;
+                candidate_mask = 0;
 
-                if (current_part == 0)
+                for (size_t k = 0; k < count; k++)
                 {
-                    tag_matches = true;
-                }
-                else
-                {
-                    if (parent_matched && depth == parent_depth)
+
+                    if (k == 0)
                     {
-                        tag_matches = true;
+                        candidate_mask = candidate_mask | (1 << 0);
                     }
                     else
                     {
-                        tag_matches = false;
+                        parent_mask = match_stack[depth];
+                        if (parent_mask & (1u << (k - 1)))
+                        {
+                            candidate_mask = candidate_mask | (1u << k);
+                        }
                     }
                 }
             }
@@ -91,42 +98,45 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
             {
                 closing = true;
                 state = State::TAG_NAME;
+
+                candidate_mask = 0;
+                tag_match_mask = 0;
             }
             else
             {
+
+                id_mask = 0;
+                class_mask = 0;
+
                 closing = false;
+                tag_match_mask = candidate_mask;
 
-                if (tag_position >= parts[current_part].tag.length ||
-                    c != parts[current_part].tag.ptr[tag_position])
-                {
-                    tag_matches = false;
-                }
-
+                match_tag_char(c, parts, count);
                 tag_position++;
-                state = State::TAG_NAME;
             }
+
+            state = State::TAG_NAME;
 
             break;
 
         case State::TAG_NAME:
+
             if (c == '>' || c == ' ')
             {
-                if (!closing &&
-                    tag_matches &&
-                    tag_position == parts[current_part].tag.length)
+
+                for (size_t k = 0; k < count; k++)
                 {
-                    tag_match_count++;
+                    if (!(tag_match_mask & (1u << k)))
+                        continue;
+                    if (tag_position != parts[k].tag.length)
+                    {
+                        tag_match_mask = tag_match_mask & ~(1u << k);
+                    }
                 }
 
                 if (c == '>')
                 {
                     finish_tag_set_state();
-                    if (tag_matches &&
-                        (!needs_id || id_matched) &&
-                        (!needs_class || class_matched))
-                    {
-                        selector_match_count++;
-                    }
                 }
                 else
                 {
@@ -136,16 +146,20 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                     currect_attribute = Attribute::UNKNOWN;
                     state = State::ATTRIBUTE_NAME;
                 }
+
+                for (size_t k = 0; k < count; k++)
+                {
+                    if (tag_match_mask & (1u << k))
+                    {
+                        tag_match_count++;
+                    }
+                }
             }
             else
             {
-                if (!closing && tag_matches)
+                if (!closing)
                 {
-                    if (tag_position >= parts[current_part].tag.length ||
-                        c != parts[current_part].tag.ptr[tag_position])
-                    {
-                        tag_matches = false;
-                    }
+                    match_tag_char(c, parts, count);
                 }
 
                 tag_position++;
@@ -164,22 +178,61 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
             {
                 finish_tag_set_state();
 
-                if (tag_matches &&
-                    (!needs_id || id_matched) &&
-                    (!needs_class || class_matched))
-                {
-                    selector_match_count++;
-                }
-                
+                // used to return selector matches count
+
                 break;
             }
 
             if (c == '=')
             {
+                candidate_attribute_mask = 0;
+
+                if (candidate_attribute == Attribute::ID &&
+                    attribute_position != 2)
+                {
+                    attribute_matches = false;
+                }
+                else if (candidate_attribute == Attribute::CLASSNAME &&
+                         attribute_position != 5)
+                {
+                    attribute_matches = false;
+                }
+
                 if (attribute_matches)
                 {
                     currect_attribute = candidate_attribute;
                     attribute_match_count++;
+
+                    switch (currect_attribute)
+                    {
+                    case Attribute::ID:
+
+                        for (size_t k = 0; k < count; k++)
+                        {
+                            if (!(tag_match_mask & (1u << k)))
+                                continue;
+                            if (parts[k].id.length > 0)
+                            {
+                                candidate_attribute_mask = candidate_attribute_mask | (1u << k);
+                            }
+                        }
+
+                        break;
+
+                    case Attribute::CLASSNAME:
+
+                        for (size_t k = 0; k < count; k++)
+                        {
+                            if (!(tag_match_mask & (1u << k)))
+                                continue;
+                            if (parts[k].class_name.length > 0)
+                            {
+                                candidate_attribute_mask = candidate_attribute_mask | (1u << k);
+                            }
+                        }
+
+                        break;
+                    }
                 }
                 else
                 {
@@ -196,25 +249,23 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
             if (attribute_position == 0)
             {
 
-                // potential id attribute
-                if (needs_id && c == 'i')
+                candidate_attribute = Attribute::UNKNOWN;
+                attribute_matches = false;
+
+                if (c == 'i')
                 {
                     candidate_attribute = Attribute::ID;
                     attribute_matches = true;
                 }
-                else if (needs_class && c == 'c')
+                else if (c == 'c')
                 {
                     candidate_attribute = Attribute::CLASSNAME;
                     attribute_matches = true;
                 }
-                else
-                {
-                    candidate_attribute = Attribute::UNKNOWN;
-                    attribute_matches = false;
-                }
                 attribute_position++;
                 break;
             }
+
             // verifying ID
             if (candidate_attribute == Attribute::ID)
             {
@@ -235,6 +286,7 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                 }
             }
             attribute_position++;
+
             break;
 
         case State::ATTRIBUTE_VALUE_START:
@@ -244,6 +296,7 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                 quote_char = c;
                 value_position = 0;
                 state = State::ATTRIBUTE_VALUE;
+                attribute_value_mask = candidate_attribute_mask;
             }
 
             break;
@@ -252,20 +305,41 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
 
             if (c == quote_char)
             {
-                if (attr_value_matches)
+                for (size_t k = 0; k < count; k++)
                 {
-                    if (currect_attribute == Attribute::ID &&
-                        value_position == parts[0].id.length)
+                    if (!(attribute_value_mask & (1u << k)))
+                        continue;
+
+                    switch (currect_attribute)
                     {
-                        id_matched = true;
-                        attr_value_match_count++;
+                    case Attribute::ID:
+                        if (value_position != parts[k].id.length)
+                        {
+                            attribute_value_mask &= ~(1u << k);
+                        }
+                        break;
+
+                    case Attribute::CLASSNAME:
+                        if (value_position != parts[k].class_name.length)
+                        {
+                            attribute_value_mask &= ~(1u << k);
+                        }
+                        break;
                     }
-                    else if (currect_attribute == Attribute::CLASSNAME &&
-                             value_position == parts[0].class_name.length)
-                    {
-                        class_matched = true;
-                        attr_value_match_count++;
-                    }
+                }
+
+                switch (currect_attribute)
+                {
+                case Attribute::ID:
+                    id_mask |= attribute_value_mask;
+                    break;
+
+                case Attribute::CLASSNAME:
+                    class_mask |= attribute_value_mask;
+                    break;
+
+                default:
+                    break;
                 }
 
                 attribute_position = 0;
@@ -281,29 +355,32 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
 
                 break;
             }
+        }
+
+        for (size_t k = 0; k < count; k++)
+        {
+            if (!(attribute_value_mask & (1u << k)))
+                continue;
 
             if (currect_attribute == Attribute::ID)
             {
-                if (value_position >= parts[0].id.length ||
-                    c != parts[0].id.ptr[value_position])
+                if (value_position >= parts[k].id.length ||
+                    c != parts[k].id.ptr[value_position])
                 {
-                    attr_value_matches = false;
+                    attribute_value_mask &= ~(1u << k);
                 }
-
-                value_position++;
             }
             else if (currect_attribute == Attribute::CLASSNAME)
             {
-                if (value_position >= parts[0].class_name.length ||
-                    c != parts[0].class_name.ptr[value_position])
+                if (value_position >= parts[k].class_name.length ||
+                    c != parts[k].class_name.ptr[value_position])
                 {
-                    attr_value_matches = false;
+                    attribute_value_mask &= ~(1u << k);
                 }
-
-                value_position++;
             }
-
-            break;
         }
+
+        value_position++;
+        break;
     }
 }

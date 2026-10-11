@@ -1,5 +1,7 @@
+#define MAX_DEPTH 1024
 #pragma once
 #include <cstddef>
+#include <cstdint>
 #include "./Selector/SelectorParser.hpp"
 class Parser
 {
@@ -22,7 +24,6 @@ class Parser
         HREF,
         SRC
     };
-    
 
     State state = State::DATA;
 
@@ -39,6 +40,7 @@ class Parser
 
     size_t attribute_match_count = 0;
     size_t attr_value_match_count = 0;
+    bool attr_value_matches = true;
 
     size_t selector_match_count = 0;
 
@@ -46,31 +48,35 @@ class Parser
     size_t attribute_position = 0;
 
     bool attribute_matches = false;
-    bool attr_value_matches = true;
-    bool id_matched = false;
-    bool class_matched = false;
 
+    
     char quote_char = ' ';
 
-    size_t current_part = 0;
-bool parent_matched = false;
 
-size_t depth = 0;
-size_t parent_depth = 0;
+    uint32_t match_stack[MAX_DEPTH]{};
 
-bool needs_id = false;
-bool needs_class = false;
+    size_t depth =0;
 
-void finish_tag_set_state();
-void set_part(size_t k, const SelectorParser::SelectorPart* parts);
+    uint32_t class_mask = 0;
+    uint32_t id_mask = 0;
+    uint32_t tag_match_mask =0;
+    uint32_t candidate_mask =0;
+    uint32_t parent_mask = 0;
+
+    uint32_t attribute_value_mask = 0;
+
+    uint32_t candidate_attribute_mask = 0;
+    
+    void finish_tag_set_state();
+    
+    void match_tag_char(const char c, const SelectorParser::SelectorPart *parts, size_t count);
+
 public:
-    Parser() : current_part(0), parent_matched(false) {};
-    void parsring(const char *buf, size_t size, SelectorParser& selectorParser);
+   
+    void parsring(const char *buf, size_t size, SelectorParser &selectorParser);
 
     size_t get_tag_match_count() const;
     size_t get_attr_match_count() const;
     size_t get_attr_val_match_count() const;
     size_t get_selector_match_count() const;
-
-    
 };
