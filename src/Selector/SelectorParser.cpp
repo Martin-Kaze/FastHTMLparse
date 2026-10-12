@@ -3,6 +3,10 @@
 void SelectorParser::parsring(SelectorLexer &selectorLexer)
 {
 
+    count = 0;
+id_required_mask = 0;
+class_required_mask = 0;
+
     const auto *tokens = selectorLexer.get_tokens();
     const size_t token_count = selectorLexer.get_count();
 
@@ -15,6 +19,8 @@ void SelectorParser::parsring(SelectorLexer &selectorLexer)
 
         SelectorPart &part = parts[count++];
 
+        part = {};
+
         part.relation = current_relation;
 
         if (tokens[i].type == SelectorLexer::TokenType::IDENT)
@@ -26,7 +32,7 @@ void SelectorParser::parsring(SelectorLexer &selectorLexer)
         while (i < token_count)
         {
 
-            if ( tokens[i].type == SelectorLexer::TokenType::HASH)
+            if (tokens[i].type == SelectorLexer::TokenType::HASH)
             {
                 i++;
                 part.id = {tokens[i].ptr, tokens[i].len};
@@ -57,6 +63,18 @@ void SelectorParser::parsring(SelectorLexer &selectorLexer)
             current_relation = SelectorParser::Relation::DESCENDANT;
         }
     }
+
+    for (size_t k = 0; k < count; k++)
+    {
+        if (parts[k].id.length > 0)
+        {
+            id_required_mask |= (1u << k);
+        }
+        if (parts[k].class_name.length > 0)
+        {
+            class_required_mask |= (1u << k);
+        }
+    }
 }
 
 const SelectorParser::SelectorPart *SelectorParser::get_parts() const
@@ -67,4 +85,16 @@ const SelectorParser::SelectorPart *SelectorParser::get_parts() const
 size_t SelectorParser::get_count() const
 {
     return count;
+}
+
+size_t SelectorParser::get_id_required_mask() const
+{
+
+    return id_required_mask;
+}
+
+size_t SelectorParser::get_class_required_mask() const
+{
+
+    return class_required_mask;
 }

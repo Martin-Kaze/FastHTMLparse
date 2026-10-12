@@ -50,10 +50,15 @@ void Parser::match_tag_char(const char c, const SelectorParser::SelectorPart *pa
     }
 }
 
+
+
 void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorParser)
 {
     const auto *parts = selectorParser.get_parts();
     size_t count = selectorParser.get_count();
+
+    size_t id_required_mask  = selectorParser.get_id_required_mask();
+    size_t class_required_mask = selectorParser.get_class_required_mask();
 
     for (size_t i = 0; i < size; i++)
     {
@@ -207,29 +212,13 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                     {
                     case Attribute::ID:
 
-                        for (size_t k = 0; k < count; k++)
-                        {
-                            if (!(tag_match_mask & (1u << k)))
-                                continue;
-                            if (parts[k].id.length > 0)
-                            {
-                                candidate_attribute_mask = candidate_attribute_mask | (1u << k);
-                            }
-                        }
+                        candidate_attribute_mask = tag_match_mask & id_required_mask;
 
                         break;
 
                     case Attribute::CLASSNAME:
 
-                        for (size_t k = 0; k < count; k++)
-                        {
-                            if (!(tag_match_mask & (1u << k)))
-                                continue;
-                            if (parts[k].class_name.length > 0)
-                            {
-                                candidate_attribute_mask = candidate_attribute_mask | (1u << k);
-                            }
-                        }
+                       candidate_attribute_mask = tag_match_mask & class_required_mask;
 
                         break;
                     }
