@@ -22,7 +22,7 @@ size_t Parser::get_selector_match_count() const
     return selector_match_count;
 }
 
-void Parser::finish_tag_set_state()
+void Parser::finish_tag_set_state(const size_t id_required_mask, const size_t class_required_mask, const size_t count)
 {
     if (closing)
     {
@@ -31,7 +31,17 @@ void Parser::finish_tag_set_state()
     }
     else
     {
-        depth++;
+        uint32_t matched = tag_match_mask & (~id_required_mask | id_mask) & (~class_required_mask | class_mask);
+        if (depth + 1 < MAX_DEPTH)
+        {
+            depth++;
+        }
+        match_stack[depth] = matched;
+
+        if (count > 0 && (matched & (1u << (count - 1))))
+        {
+            selector_match_count++;
+        }
     }
     state = State::DATA;
 }
@@ -51,14 +61,12 @@ void Parser::match_tag_char(const char c, const SelectorParser::SelectorPart *pa
     }
 }
 
-
-
 void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorParser)
 {
     const auto *parts = selectorParser.get_parts();
     size_t count = selectorParser.get_count();
 
-    size_t id_required_mask  = selectorParser.get_id_required_mask();
+    size_t id_required_mask = selectorParser.get_id_required_mask();
     size_t class_required_mask = selectorParser.get_class_required_mask();
 
     for (size_t i = 0; i < size; i++)
@@ -118,6 +126,7 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                 tag_match_mask = candidate_mask;
 
                 match_tag_char(c, parts, count);
+
                 tag_position++;
             }
 
@@ -142,7 +151,7 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
 
                 if (c == '>')
                 {
-                    finish_tag_set_state();
+                    finish_tag_set_state(id_required_mask, class_required_mask, count);
                 }
                 else
                 {
@@ -182,7 +191,7 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
 
             if (c == '>')
             {
-                finish_tag_set_state();
+                finish_tag_set_state(id_required_mask, class_required_mask, count);
 
                 // used to return selector matches count
 
@@ -219,8 +228,11 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
 
                     case Attribute::CLASSNAME:
 
-                       candidate_attribute_mask = tag_match_mask & class_required_mask;
+                        candidate_attribute_mask = tag_match_mask & class_required_mask;
 
+                        break;
+
+                    default:
                         break;
                     }
                 }
@@ -315,6 +327,9 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                             attribute_value_mask &= ~(1u << k);
                         }
                         break;
+
+                    default:
+                        break;
                     }
                 }
 
@@ -349,33 +364,30 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
             }
 
             for (size_t k = 0; k < count; k++)
-        {
-            if (!(attribute_value_mask & (1u << k)))
-                continue;
-
-            if (currect_attribute == Attribute::ID)
             {
-                if (value_position >= parts[k].id.length ||
-                    c != parts[k].id.ptr[value_position])
+                if (!(attribute_value_mask & (1u << k)))
+                    continue;
+
+                if (currect_attribute == Attribute::ID)
                 {
-                    attribute_value_mask &= ~(1u << k);
+                    if (value_position >= parts[k].id.length ||
+                        c != parts[k].id.ptr[value_position])
+                    {
+                        attribute_value_mask &= ~(1u << k);
+                    }
+                }
+                else if (currect_attribute == Attribute::CLASSNAME)
+                {
+                    if (value_position >= parts[k].class_name.length ||
+                        c != parts[k].class_name.ptr[value_position])
+                    {
+                        attribute_value_mask &= ~(1u << k);
+                    }
                 }
             }
-            else if (currect_attribute == Attribute::CLASSNAME)
-            {
-                if (value_position >= parts[k].class_name.length ||
-                    c != parts[k].class_name.ptr[value_position])
-                {
-                    attribute_value_mask &= ~(1u << k);
-                }
-            }
+
+            value_position++;
+            break;
         }
-
-        value_position++;
-        break;
-
-        }
-
-        
     }
 }
