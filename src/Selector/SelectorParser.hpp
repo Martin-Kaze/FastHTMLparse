@@ -33,7 +33,6 @@ public:
     size_t get_id_required_mask() const;
     size_t get_class_required_mask () const;
     
-    size_t get_count() const;
     void parsring(SelectorLexer &selectorLexer);
 
 private:
