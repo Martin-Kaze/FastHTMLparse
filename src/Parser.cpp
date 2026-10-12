@@ -344,9 +344,8 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
 
                 break;
             }
-        }
 
-        for (size_t k = 0; k < count; k++)
+            for (size_t k = 0; k < count; k++)
         {
             if (!(attribute_value_mask & (1u << k)))
                 continue;
@@ -371,5 +370,9 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
 
         value_position++;
         break;
+        
+        }
+
+        
     }
 }
