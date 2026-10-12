@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 #include "./Selector/SelectorParser.hpp"
+#include <bit>
+
 class Parser
 {
 

@@ -1,5 +1,6 @@
 #include "Parser.hpp"
 #include <iostream>
+#include <bit>
 
 size_t Parser::get_tag_match_count() const
 {
@@ -317,6 +318,8 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                     }
                 }
 
+                attr_value_match_count += std::popcount(attribute_value_mask);
+
                 switch (currect_attribute)
                 {
                 case Attribute::ID:
@@ -370,7 +373,7 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
 
         value_position++;
         break;
-        
+
         }
 
         
