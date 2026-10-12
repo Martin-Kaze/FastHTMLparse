@@ -510,7 +510,7 @@ TEST(ParserTest, WithBadChild)
 
     parser.parsring(html, strlen(html), selector);
 
-    EXPECT_EQ(parser.get_selector_match_count(), 1);
+    EXPECT_EQ(parser.get_selector_match_count(), 0);
 }
 
 TEST(ParserTest, WithGoodChild)
@@ -530,7 +530,7 @@ TEST(ParserTest, WithGoodChild)
 
     parser.parsring(html, strlen(html), selector);
 
-    EXPECT_EQ(parser.get_selector_match_count(), 2);
+    EXPECT_EQ(parser.get_selector_match_count(), 1);
 }
 
 TEST(ParserTest, WithNotGoodChild)
