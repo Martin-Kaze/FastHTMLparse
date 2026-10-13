@@ -2,11 +2,16 @@
 #pragma once
 #include <cstddef>
 #include <cstdint>
+#include <string>
+#include <vector>
 #include "./Selector/SelectorParser.hpp"
 #include <bit>
 
 class Parser
 {
+    std::string current_text;
+size_t capture_depth = 0;
+bool collecting = false;
 
     enum class State
     {
@@ -71,8 +76,14 @@ class Parser
 
     void match_tag_char(const char c, const SelectorParser::SelectorPart *parts, size_t count);
 
+    using MatchCallback = void (*)(std::string_view, void*);
+
+    MatchCallback on_match = nullptr;
+    void* callback_context = nullptr;
+
 public:
     void parsring(const char *buf, size_t size, SelectorParser &selectorParser);
+    void set_match_callback(MatchCallback callback, void* context = nullptr);
 
     size_t get_tag_match_count() const;
     size_t get_attr_match_count() const;

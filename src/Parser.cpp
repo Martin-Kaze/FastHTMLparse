@@ -2,6 +2,12 @@
 #include <iostream>
 #include <bit>
 
+void Parser::set_match_callback(MatchCallback callback, void *context)
+{
+    on_match = callback;
+    callback_context = context;
+}
+
 size_t Parser::get_tag_match_count() const
 {
     return tag_match_count;
@@ -26,8 +32,19 @@ void Parser::finish_tag_set_state(const size_t id_required_mask, const size_t cl
 {
     if (closing)
     {
+        if (collecting && capture_depth == depth)
+        {
+            collecting = false;
+
+            on_match(std::string_view(current_text), callback_context);
+
+            current_text.clear();
+        }
+
         if (depth > 0)
+        {
             depth--;
+        }
     }
     else
     {
@@ -41,6 +58,13 @@ void Parser::finish_tag_set_state(const size_t id_required_mask, const size_t cl
         if (count > 0 && (matched & (1u << (count - 1))))
         {
             selector_match_count++;
+
+            if (on_match != nullptr)
+            {
+                current_text.clear();
+                capture_depth = depth;
+                collecting = true;
+            }
         }
     }
     state = State::DATA;
@@ -78,6 +102,28 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
         {
 
         case State::DATA:
+        {
+            const char *text_start = buf + i;
+
+            const char *next_tag = static_cast<const char *>(
+                std::memchr(text_start, '<', size - i));
+
+            size_t text_length = next_tag
+                                     ? static_cast<size_t>(next_tag - text_start)
+                                     : size - i;
+
+            if (collecting && text_length > 0)
+            {
+                current_text.append(text_start, text_length);
+            }
+
+            if (next_tag == nullptr)
+            {
+                return; // This chunk ends with text.
+            }
+
+            i = static_cast<size_t>(next_tag - buf);
+            c = '<';
 
             if (c == '<')
             {
@@ -105,9 +151,9 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                 }
             }
             break;
-
+        }
         case State::TAG_OPEN:
-
+        {
             if (c == '/')
             {
                 closing = true;
@@ -133,9 +179,9 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
             state = State::TAG_NAME;
 
             break;
-
+        }
         case State::TAG_NAME:
-
+        {
             if (c == '>' || c == ' ')
             {
 
@@ -181,9 +227,9 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
             }
 
             break;
-
+        }
         case State::ATTRIBUTE_NAME:
-
+        {
             if (c == ' ')
             {
                 break;
@@ -290,9 +336,9 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
             attribute_position++;
 
             break;
-
+        }
         case State::ATTRIBUTE_VALUE_START:
-
+        {
             if (c == '"' || c == '\'')
             {
                 quote_char = c;
@@ -302,9 +348,9 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
             }
 
             break;
-
+        }
         case State::ATTRIBUTE_VALUE:
-
+        {
             if (c == quote_char)
             {
                 for (size_t k = 0; k < count; k++)
@@ -388,6 +434,7 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
 
             value_position++;
             break;
+        }
         }
     }
 }

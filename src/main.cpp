@@ -3,15 +3,27 @@
 #include <iostream>
 #include <fstream>
 #include <chrono>
+#include "Selector/SelectorLexer.hpp"
+#include "Selector/SelectorParser.hpp"
+#include <string_view>
 
+void process_value(std::string_view text, void*)
+{
+    std::cout << "DATA: [" << text << "]\n";
+
+    if (text == std::string_view{"29.99"})
+    {
+        std::cout << "Expected price found\n";
+    }
+
+}
 int main()
 {
 
-    Parser parser;
     auto start = std::chrono::steady_clock::now();
 
     std::ifstream file(
-        "C:\\Users\\manvi\\Desktop\\test.html",
+        "../src/test.html",
         std::ios::binary);
 
     if (!file)
@@ -20,12 +32,23 @@ int main()
         return 1;
     }
 
+    std::string query = "div#main > p.text";
+
+    SelectorLexer lexer;
+    lexer.query(query);
+
+    SelectorParser selectorParser;
+    selectorParser.parsring(lexer);
+
+    Parser parser;
+    parser.set_match_callback(process_value);
+
     char buf[64 * 1024];
 
     while (file.read(buf, sizeof(buf)) || file.gcount())
     {
-        size_t n = file.gcount();
-        //parser.parsring(buf, n);
+        size_t n = static_cast<size_t>(file.gcount());
+        parser.parsring(buf, n, selectorParser);
     }
 
     std::string eilute;
