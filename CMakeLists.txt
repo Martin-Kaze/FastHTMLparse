@@ -32,6 +32,7 @@ add_executable(selector_tests
     tests/SelectorLexerTests.cpp
     tests/SelectorParserTests.cpp
     tests/ParserTests.cpp
+    tests/VoidtagTests.cpp
     src/Selector/SelectorLexer.cpp
     src/Selector/SelectorParser.cpp
     src/Parser.cpp
