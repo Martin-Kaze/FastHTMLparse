@@ -13,6 +13,11 @@ class Parser
 size_t capture_depth = 0;
 bool collecting = false;
 
+uint32_t void_match_mask = 0;
+
+void match_void_tag_char(char c);
+bool current_tag_is_void() const;
+
     enum class State
     {
         DATA,

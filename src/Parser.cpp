@@ -1,11 +1,65 @@
 #include "Parser.hpp"
 #include <iostream>
 #include <bit>
+#include <string_view>
 
+namespace
+{
+    constexpr std::string_view void_tags[] = {
+        "area", "base", "br", "col", "embed",
+        "hr", "img", "input", "link", "meta",
+        "source", "track", "wbr"
+    };
+
+    constexpr size_t void_tag_count = 13;
+
+    constexpr uint32_t all_void_candidates =
+        (uint32_t{1} << void_tag_count) - 1u;
+}
 void Parser::set_match_callback(MatchCallback callback, void *context)
 {
     on_match = callback;
     callback_context = context;
+}
+
+void Parser::match_void_tag_char(char c)
+{
+    if (c >= 'A' && c <= 'Z')
+    {
+        c = static_cast<char>(c + ('a' - 'A'));
+    }
+
+    for (size_t k = 0; k < void_tag_count; ++k)
+    {
+        const uint32_t bit = uint32_t{1} << k;
+
+        if ((void_match_mask & bit) == 0)
+        {
+            continue;
+        }
+
+        if (tag_position >= void_tags[k].size() ||
+            c != void_tags[k][tag_position])
+        {
+            void_match_mask &= ~bit;
+        }
+    }
+}
+
+bool Parser::current_tag_is_void() const
+{
+    for (size_t k = 0; k < void_tag_count; ++k)
+    {
+        const uint32_t bit = uint32_t{1} << k;
+
+        if ((void_match_mask & bit) != 0 &&
+            tag_position == void_tags[k].size())
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 size_t Parser::get_tag_match_count() const
@@ -41,7 +95,7 @@ void Parser::finish_tag_set_state(const size_t id_required_mask, const size_t cl
             current_text.clear();
         }
 
-        if (depth > 0)
+        if (depth > 0 )
         {
             depth--;
         }
@@ -49,11 +103,14 @@ void Parser::finish_tag_set_state(const size_t id_required_mask, const size_t cl
     else
     {
         uint32_t matched = tag_match_mask & (~id_required_mask | id_mask) & (~class_required_mask | class_mask);
-        if (depth + 1 < MAX_DEPTH)
+        if (!current_tag_is_void()){
+             if (depth + 1 < MAX_DEPTH)
         {
             depth++;
         }
         match_stack[depth] = matched;
+        }
+       
 
         if (count > 0 && (matched & (1u << (count - 1))))
         {
@@ -129,6 +186,7 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
             {
                 state = State::TAG_OPEN;
                 tag_position = 0;
+                void_match_mask = all_void_candidates;
                 closing = false;
 
                 candidate_mask = 0;
@@ -170,7 +228,7 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
 
                 closing = false;
                 tag_match_mask = candidate_mask;
-
+                match_void_tag_char(c);
                 match_tag_char(c, parts, count);
 
                 tag_position++;
@@ -182,7 +240,7 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
         }
         case State::TAG_NAME:
         {
-            if (c == '>' || c == ' ')
+            if (c == '>' || c == ' ' || c == '/')
             {
 
                 for (size_t k = 0; k < count; k++)
@@ -218,8 +276,10 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
             }
             else
             {
+                 
                 if (!closing)
                 {
+                    match_void_tag_char(c);
                     match_tag_char(c, parts, count);
                 }
 
