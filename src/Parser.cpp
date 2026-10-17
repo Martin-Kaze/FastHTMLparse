@@ -8,8 +8,7 @@ namespace
     constexpr std::string_view void_tags[] = {
         "area", "base", "br", "col", "embed",
         "hr", "img", "input", "link", "meta",
-        "source", "track", "wbr"
-    };
+        "source", "track", "wbr"};
 
     constexpr size_t void_tag_count = 13;
 
@@ -95,7 +94,7 @@ void Parser::finish_tag_set_state(const size_t id_required_mask, const size_t cl
             current_text.clear();
         }
 
-        if (depth > 0 )
+        if (depth > 0)
         {
             depth--;
         }
@@ -103,14 +102,15 @@ void Parser::finish_tag_set_state(const size_t id_required_mask, const size_t cl
     else
     {
         uint32_t matched = tag_match_mask & (~id_required_mask | id_mask) & (~class_required_mask | class_mask);
-        if (!current_tag_is_void()){
-             if (depth + 1 < MAX_DEPTH)
+        const bool is_void_tag = current_tag_is_void();
+        if (!is_void_tag)
         {
-            depth++;
+            if (depth + 1 < MAX_DEPTH)
+            {
+                depth++;
+            }
+            match_stack[depth] = matched;
         }
-        match_stack[depth] = matched;
-        }
-       
 
         if (count > 0 && (matched & (1u << (count - 1))))
         {
@@ -118,9 +118,15 @@ void Parser::finish_tag_set_state(const size_t id_required_mask, const size_t cl
 
             if (on_match != nullptr)
             {
-                current_text.clear();
+                if(is_void_tag){
+                    on_match(std::string_view{}, callback_context);
+                }
+                else{
+                     current_text.clear();
                 capture_depth = depth;
-                collecting = true;
+                collecting = true;  
+                }
+                
             }
         }
     }
@@ -276,7 +282,7 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
             }
             else
             {
-                 
+
                 if (!closing)
                 {
                     match_void_tag_char(c);
