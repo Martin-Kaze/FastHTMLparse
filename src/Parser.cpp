@@ -15,6 +15,7 @@ namespace
     constexpr uint32_t all_void_candidates =
         (uint32_t{1} << void_tag_count) - 1u;
 }
+
 void Parser::set_match_callback(MatchCallback callback, void *context)
 {
     on_match = callback;
@@ -148,6 +149,11 @@ void Parser::match_tag_char(const char c, const SelectorParser::SelectorPart *pa
     }
 }
 
+static inline bool is_space(char c)
+{
+    return c == ' ' || c == '\n' || c == '\t' || c == '\r' || c == '\f';
+}
+
 void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorParser)
 {
     const auto *parts = selectorParser.get_parts();
@@ -246,7 +252,7 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
         }
         case State::TAG_NAME:
         {
-            if (c == '>' || c == ' ' || c == '/')
+            if (is_space(c))
             {
 
                 for (size_t k = 0; k < count; k++)
@@ -296,7 +302,7 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
         }
         case State::ATTRIBUTE_NAME:
         {
-            if (c == ' ')
+            if (is_space(c))
             {
                 break;
             }
