@@ -24,11 +24,7 @@ void Parser::set_match_callback(MatchCallback callback, void *context)
 
 void Parser::match_void_tag_char(char c)
 {
-    if (c >= 'A' && c <= 'Z')
-    {
-        c = static_cast<char>(c + ('a' - 'A'));
-    }
-
+   
     for (size_t k = 0; k < void_tag_count; ++k)
     {
         const uint32_t bit = uint32_t{1} << k;
@@ -240,6 +236,7 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
 
                 closing = false;
                 tag_match_mask = candidate_mask;
+                if (c >= 'A' && c <= 'Z') {c += 'a' - 'A';}
                 match_void_tag_char(c);
                 match_tag_char(c, parts, count);
 
@@ -291,6 +288,7 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
 
                 if (!closing)
                 {
+                    if (c >= 'A' && c <= 'Z') {c += 'a' - 'A';}
                     match_void_tag_char(c);
                     match_tag_char(c, parts, count);
                 }
