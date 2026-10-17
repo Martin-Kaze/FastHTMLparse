@@ -24,7 +24,7 @@ void Parser::set_match_callback(MatchCallback callback, void *context)
 
 void Parser::match_void_tag_char(char c)
 {
-   
+
     for (size_t k = 0; k < void_tag_count; ++k)
     {
         const uint32_t bit = uint32_t{1} << k;
@@ -115,15 +115,16 @@ void Parser::finish_tag_set_state(const size_t id_required_mask, const size_t cl
 
             if (on_match != nullptr)
             {
-                if(is_void_tag){
+                if (is_void_tag)
+                {
                     on_match(std::string_view{}, callback_context);
                 }
-                else{
-                     current_text.clear();
-                capture_depth = depth;
-                collecting = true;  
+                else
+                {
+                    current_text.clear();
+                    capture_depth = depth;
+                    collecting = true;
                 }
-                
             }
         }
     }
@@ -184,7 +185,7 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
 
             if (next_tag == nullptr)
             {
-                return; // This chunk ends with text.
+                return;
             }
 
             i = static_cast<size_t>(next_tag - buf);
@@ -236,7 +237,10 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
 
                 closing = false;
                 tag_match_mask = candidate_mask;
-                if (c >= 'A' && c <= 'Z') {c += 'a' - 'A';}
+                if (c >= 'A' && c <= 'Z')
+                {
+                    c += 'a' - 'A';
+                }
                 match_void_tag_char(c);
                 match_tag_char(c, parts, count);
 
@@ -288,7 +292,10 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
 
                 if (!closing)
                 {
-                    if (c >= 'A' && c <= 'Z') {c += 'a' - 'A';}
+                    if (c >= 'A' && c <= 'Z')
+                    {
+                        c += 'a' - 'A';
+                    }
                     match_void_tag_char(c);
                     match_tag_char(c, parts, count);
                 }
@@ -302,20 +309,71 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
         {
             if (is_space(c))
             {
+                if (attribute_position > 0)
+                {
+                    name_ended = true;
+                }
+
                 break;
+            }
+
+            if (name_ended)
+            {
+                attribute_position = 0;
+                name_ended = false;
+                ;
+            }
+
+            if (attribute_position == 0)
+            {
+
+                candidate_attribute = Attribute::UNKNOWN;
+                attribute_matches = false;
+
+                if (c == 'i')
+                {
+                    candidate_attribute = Attribute::ID;
+                    attribute_matches = true;
+                }
+                else if (c == 'c')
+                {
+                    candidate_attribute = Attribute::CLASSNAME;
+                    attribute_matches = true;
+                }
+                attribute_position++;
+                break;
+            }
+
+            // verifying ID
+            if (candidate_attribute == Attribute::ID)
+            {
+
+                if (attribute_position >= 2 || c != "id"[attribute_position])
+                {
+                    attribute_matches = false;
+                }
+            }
+
+            // verifying CLASS
+            else if (candidate_attribute == Attribute::CLASSNAME)
+            {
+
+                if (attribute_position >= 5 || c != "class"[attribute_position])
+                {
+                    attribute_matches = false;
+                }
             }
 
             if (c == '>')
             {
                 finish_tag_set_state(id_required_mask, class_required_mask, count);
 
-                // used to return selector matches count
-
                 break;
             }
 
             if (c == '=')
             {
+                name_ended = false;
                 candidate_attribute_mask = 0;
 
                 if (candidate_attribute == Attribute::ID &&
@@ -364,45 +422,6 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                 break;
             }
 
-            if (attribute_position == 0)
-            {
-
-                candidate_attribute = Attribute::UNKNOWN;
-                attribute_matches = false;
-
-                if (c == 'i')
-                {
-                    candidate_attribute = Attribute::ID;
-                    attribute_matches = true;
-                }
-                else if (c == 'c')
-                {
-                    candidate_attribute = Attribute::CLASSNAME;
-                    attribute_matches = true;
-                }
-                attribute_position++;
-                break;
-            }
-
-            // verifying ID
-            if (candidate_attribute == Attribute::ID)
-            {
-
-                if (attribute_position >= 2 || c != "id"[attribute_position])
-                {
-                    attribute_matches = false;
-                }
-            }
-
-            // verifying CLASS
-            else if (candidate_attribute == Attribute::CLASSNAME)
-            {
-
-                if (attribute_position >= 5 || c != "class"[attribute_position])
-                {
-                    attribute_matches = false;
-                }
-            }
             attribute_position++;
 
             break;

@@ -49,7 +49,7 @@ bool current_tag_is_void() const;
     Attribute currect_attribute = Attribute::UNKNOWN;
 
     size_t tag_match_count = 0;
-
+    bool name_ended = false;
     size_t attribute_match_count = 0;
     size_t attr_value_match_count = 0;
     bool attr_value_matches = true;
