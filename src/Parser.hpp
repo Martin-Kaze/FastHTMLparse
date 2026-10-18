@@ -64,6 +64,7 @@ bool current_tag_is_void() const;
     char quote_char = ' ';
 
     uint32_t match_stack[MAX_DEPTH]{};
+    uint32_t any_stack[MAX_DEPTH]{};
 
     size_t depth = 0;
 

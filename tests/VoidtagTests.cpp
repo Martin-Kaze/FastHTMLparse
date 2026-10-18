@@ -478,7 +478,7 @@ TEST(ParserExtra, MultipleClassesInOneAttribute)
 }
 
 // void tags are lowercased for matching, selector tag names are not
-TEST(ParserExtra, DISABLED_UppercaseTagNames)
+TEST(ParserExtra, UppercaseTagNames)
 {
     EXPECT_EQ(run("div", "<DIV>x</DIV>").selectors, 1u);
 }
@@ -503,4 +503,35 @@ TEST(ParserExtra, DISABLED_ScriptContentIsRawText)
     Out r = run("div", "<script>if (a<b) { x = \"<div>\"; }</script><div>real</div>");
     EXPECT_EQ(r.selectors, 1u);
     EXPECT_EQ(r.texts, L({"real"}));
+}
+
+TEST(ParserExtra, DescendantSelector)
+{
+    EXPECT_EQ(run("ul li", "<ul><div><li>x</li></div></ul>").selectors, 1u);
+}
+
+// ul > li must NOT match when a div sits between
+TEST(ParserExtra, DescendantNotChild)
+{
+    EXPECT_EQ(run("ul > li", "<ul><div><li>x</li></div></ul>").selectors, 0u);
+}
+
+// no ul above, no match
+TEST(ParserExtra, DescendantNeedsAncestor)
+{
+    EXPECT_EQ(run("ul li", "<li>x</li>").selectors, 0u);
+}
+
+// ancestor closed before li, no match
+TEST(ParserExtra, DescendantAfterAncestorClosed)
+{
+    EXPECT_EQ(run("ul li", "<ul></ul><li>x</li>").selectors, 0u);
+}
+
+// deeper nesting
+TEST(ParserExtra, DescendantDeep)
+{
+    Out r = run("ul li", "<ul><div><p><li>x</li></p></div></ul>");
+    EXPECT_EQ(r.selectors, 1u);
+    EXPECT_EQ(r.texts, L({"x"}));
 }

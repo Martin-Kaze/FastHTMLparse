@@ -108,6 +108,7 @@ void Parser::finish_tag_set_state(const size_t id_required_mask, const size_t cl
                 depth++;
             }
             match_stack[depth] = matched;
+            any_stack[depth] = any_stack[depth - 1] | matched;
         }
 
         if (count > 0 && (matched & (1u << (count - 1))))
@@ -210,11 +211,11 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                     }
                     else
                     {
-                        parent_mask = match_stack[depth];
-                        if (parent_mask & (1u << (k - 1)))
-                        {
-                            candidate_mask = candidate_mask | (1u << k);
-                        }
+                        const uint32_t src = (parts[k].relation == SelectorParser::Relation::CHILD)
+                                                 ? match_stack[depth] 
+                                                 : any_stack[depth];  
+                        if (src & (1u << (k - 1)))
+                            candidate_mask |= 1u << k;
                     }
                 }
             }
