@@ -484,7 +484,7 @@ TEST(ParserExtra, UppercaseTagNames)
 }
 
 // ATTRIBUTE_VALUE_START waits for a quote and swallows '>'
-TEST(ParserExtra, DISABLED_UnquotedAttributeValue)
+TEST(ParserExtra, UnquotedAttributeValue)
 {
     EXPECT_EQ(run("div.a", "<div class=a>x</div><div class=a>y</div>").selectors, 2u);
 }

@@ -212,8 +212,8 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                     else
                     {
                         const uint32_t src = (parts[k].relation == SelectorParser::Relation::CHILD)
-                                                 ? match_stack[depth] 
-                                                 : any_stack[depth];  
+                                                 ? match_stack[depth]
+                                                 : any_stack[depth];
                         if (src & (1u << (k - 1)))
                             candidate_mask |= 1u << k;
                     }
@@ -436,13 +436,24 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                 state = State::ATTRIBUTE_VALUE;
                 attribute_value_mask = candidate_attribute_mask;
             }
-
+            else if (!is_space(c) && c != '>')
+            {
+                quote_char = 0; // 0 = unquoted
+                value_position = 0;
+                state = State::ATTRIBUTE_VALUE;
+                attribute_value_mask = candidate_attribute_mask;
+                --i;
+            }
             break;
         }
         case State::ATTRIBUTE_VALUE:
         {
 
-            if (c == quote_char)
+            const bool unquoted = (quote_char == 0);
+            const bool value_ended = unquoted ? (is_space(c) || c == '>')
+                                              : (c == quote_char);
+
+            if (value_ended)
             {
                 for (size_t k = 0; k < count; k++)
                 {
@@ -500,10 +511,15 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
 
                 state = State::ATTRIBUTE_NAME;
 
+                if (c == '>')
+                {
+                    finish_tag_set_state(id_required_mask, class_required_mask, count);
+                }
+
                 break;
             }
 
-            if (is_space(c) && currect_attribute == Attribute::CLASSNAME)
+            if (!unquoted && is_space(c) && currect_attribute == Attribute::CLASSNAME)
             {
 
                 for (size_t k = 0; k < count; k++)
