@@ -10,13 +10,13 @@
 class Parser
 {
     std::string current_text;
-size_t capture_depth = 0;
-bool collecting = false;
+    size_t capture_depth = 0;
+    bool collecting = false;
 
-uint32_t void_match_mask = 0;
+    uint32_t void_match_mask = 0;
 
-void match_void_tag_char(char c);
-bool current_tag_is_void() const;
+    void match_void_tag_char(char c);
+    bool current_tag_is_void() const;
 
     enum class State
     {
@@ -26,6 +26,9 @@ bool current_tag_is_void() const;
         ATTRIBUTE_NAME,
         ATTRIBUTE_VALUE,
         ATTRIBUTE_VALUE_START,
+        AFTER_BANG,
+        COMMENT,
+        MARKUP_DECL
     };
 
     enum class Attribute
@@ -61,6 +64,9 @@ bool current_tag_is_void() const;
 
     bool attribute_matches = false;
 
+    uint8_t bang_dashes = 0;
+    uint8_t dashes = 0;
+
     char quote_char = ' ';
 
     uint32_t match_stack[MAX_DEPTH]{};
@@ -82,14 +88,14 @@ bool current_tag_is_void() const;
 
     void match_tag_char(const char c, const SelectorParser::SelectorPart *parts, size_t count);
 
-    using MatchCallback = void (*)(std::string_view, void*);
+    using MatchCallback = void (*)(std::string_view, void *);
 
     MatchCallback on_match = nullptr;
-    void* callback_context = nullptr;
+    void *callback_context = nullptr;
 
 public:
     void parsring(const char *buf, size_t size, SelectorParser &selectorParser);
-    void set_match_callback(MatchCallback callback, void* context = nullptr);
+    void set_match_callback(MatchCallback callback, void *context = nullptr);
 
     size_t get_tag_match_count() const;
     size_t get_attr_match_count() const;

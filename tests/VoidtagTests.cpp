@@ -490,7 +490,7 @@ TEST(ParserExtra, UnquotedAttributeValue)
 }
 
 // comments are parsed like tags
-TEST(ParserExtra, DISABLED_CommentsIgnored)
+TEST(ParserExtra, CommentsIgnored)
 {
     Out r = run("div", "<!-- <div>fake</div> --><div>real</div>");
     EXPECT_EQ(r.selectors, 1u);

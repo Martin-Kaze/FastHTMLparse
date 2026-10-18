@@ -223,6 +223,13 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
         }
         case State::TAG_OPEN:
         {
+            if (c == '!')
+            {
+                state = State::AFTER_BANG;
+                bang_dashes = 0;
+                break;
+            }
+
             if (c == '/')
             {
                 closing = true;
@@ -253,6 +260,45 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
 
             break;
         }
+
+        case State::AFTER_BANG:
+
+            if (c == '-')
+            {
+                if (++bang_dashes == 2)
+                {
+                    dashes = 0;
+                    state = State::COMMENT;
+                }
+            }
+            else if (c == '>')
+            {
+                state = State::DATA;
+            }
+            else
+            {
+                state = State::MARKUP_DECL;
+            }
+
+            break;
+
+        case State::COMMENT:
+
+            if (c == '-') {
+                if (dashes < 2)
+                    dashes++;
+            } else if (c == '>' && dashes >= 2) {
+                state = State::DATA;
+                dashes = 0;
+            } else {
+                break;
+            }
+
+        case State::MARKUP_DECL:
+            if (c == '>')
+                state = State::DATA;
+            break;
+
         case State::TAG_NAME:
         {
             if (c == '>' || c == '/' || is_space(c))
