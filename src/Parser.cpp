@@ -328,6 +328,7 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
             }
             else
             {
+                dashes = 0;
                 break;
             }
 
