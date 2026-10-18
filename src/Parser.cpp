@@ -15,6 +15,28 @@ namespace
 
     constexpr uint32_t all_void_candidates =
         (uint32_t{1} << void_tag_count) - 1u;
+
+    constexpr std::string_view raw_tags[] = {"script", "style"};
+    constexpr std::string_view raw_ends[] = {"</script", "</style"};
+
+}
+
+void Parser::match_raw_tag_char(char c)
+{
+    for (size_t k = 0; k < 2; ++k)
+    {
+        if (!(raw_tag_mask & (1u << k))) continue;
+        if (tag_position >= raw_tags[k].size() || c != raw_tags[k][tag_position])
+            raw_tag_mask &= ~(1u << k);
+    }
+}
+
+int Parser::current_raw_tag() const      
+{
+    for (size_t k = 0; k < 2; ++k)
+        if ((raw_tag_mask & (1u << k)) && tag_position == raw_tags[k].size())
+            return (int)k;
+    return -1; // -1 , means not raw
 }
 
 void Parser::set_match_callback(MatchCallback callback, void *context)
@@ -81,6 +103,7 @@ size_t Parser::get_selector_match_count() const
 
 void Parser::finish_tag_set_state(const size_t id_required_mask, const size_t class_required_mask, const size_t count)
 {
+    int raw = closing ? -1 : current_raw_tag();
     if (closing)
     {
         if (collecting && capture_depth == depth)
@@ -130,6 +153,13 @@ void Parser::finish_tag_set_state(const size_t id_required_mask, const size_t cl
             }
         }
     }
+    if (raw >= 0)
+{
+    raw_kind = raw;
+    raw_match = 0;
+    state = State::RAWTEXT;
+}
+else
     state = State::DATA;
 }
 
@@ -198,6 +228,7 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                 state = State::TAG_OPEN;
                 tag_position = 0;
                 void_match_mask = all_void_candidates;
+                raw_tag_mask = 3; // last 2 bits are 11
                 closing = false;
 
                 candidate_mask = 0;
@@ -251,6 +282,7 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                     c += 'a' - 'A';
                 }
                 match_void_tag_char(c);
+                match_raw_tag_char(c);
                 match_tag_char(c, parts, count);
 
                 tag_position++;
@@ -284,13 +316,18 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
 
         case State::COMMENT:
 
-            if (c == '-') {
+            if (c == '-')
+            {
                 if (dashes < 2)
                     dashes++;
-            } else if (c == '>' && dashes >= 2) {
+            }
+            else if (c == '>' && dashes >= 2)
+            {
                 state = State::DATA;
                 dashes = 0;
-            } else {
+            }
+            else
+            {
                 break;
             }
 
@@ -298,6 +335,27 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
             if (c == '>')
                 state = State::DATA;
             break;
+
+        case State::RAWTEXT:
+        {
+            const char lc = (c >= 'A' && c <= 'Z') ? c + 32 : c;
+
+            if (lc == raw_ends[raw_kind][raw_match])
+            {
+                if (++raw_match == raw_ends[raw_kind].size())
+                {
+                    raw_match = 0;
+                    closing = true;
+                    tag_position = 0;
+                    tag_match_mask = 0;
+                    candidate_mask = 0;
+                    state = State::TAG_NAME;
+                }
+            }
+            else
+                raw_match = (lc == '<') ? 1 : 0;
+            break;
+        }
 
         case State::TAG_NAME:
         {
@@ -345,6 +403,7 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                         c += 'a' - 'A';
                     }
                     match_void_tag_char(c);
+                    match_raw_tag_char(c);
                     match_tag_char(c, parts, count);
                 }
 

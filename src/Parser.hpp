@@ -15,6 +15,10 @@ class Parser
 
     uint32_t void_match_mask = 0;
 
+    uint32_t raw_tag_mask = 0;
+    size_t raw_match = 0;
+    int raw_kind = 0;
+
     void match_void_tag_char(char c);
     bool current_tag_is_void() const;
 
@@ -28,7 +32,8 @@ class Parser
         ATTRIBUTE_VALUE_START,
         AFTER_BANG,
         COMMENT,
-        MARKUP_DECL
+        MARKUP_DECL,
+        RAWTEXT,
     };
 
     enum class Attribute
@@ -96,6 +101,8 @@ class Parser
 public:
     void parsring(const char *buf, size_t size, SelectorParser &selectorParser);
     void set_match_callback(MatchCallback callback, void *context = nullptr);
+    void match_raw_tag_char(char c);
+    int current_raw_tag() const;
 
     size_t get_tag_match_count() const;
     size_t get_attr_match_count() const;

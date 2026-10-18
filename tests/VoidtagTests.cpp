@@ -498,7 +498,7 @@ TEST(ParserExtra, CommentsIgnored)
 }
 
 // script content is parsed like markup
-TEST(ParserExtra, DISABLED_ScriptContentIsRawText)
+TEST(ParserExtra, ScriptContentIsRawText)
 {
     Out r = run("div", "<script>if (a<b) { x = \"<div>\"; }</script><div>real</div>");
     EXPECT_EQ(r.selectors, 1u);
