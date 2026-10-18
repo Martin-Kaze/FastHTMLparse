@@ -458,13 +458,13 @@ TEST(ParserExtra, SameResultForAnyChunkSize)
 // Run with --gtest_also_run_disabled_tests. Each one currently fails.
 
 // boolean attribute before class: attribute_position is not reset on ' ' in ATTRIBUTE_NAME
-TEST(ParserExtra, DISABLED_BooleanAttributeBeforeClass)
+TEST(ParserExtra, BooleanAttributeBeforeClass)
 {
     EXPECT_EQ(run("button.a", "<button disabled class=\"a\">x</button>").selectors, 1u);
 }
 
 // only ' ' counts as whitespace inside a tag
-TEST(ParserExtra, DISABLED_NewlineAndTabInsideTag)
+TEST(ParserExtra, NewlineAndTabInsideTag)
 {
     EXPECT_EQ(run("div.a", "<div\nclass=\"a\">x</div>").selectors, 1u);
     EXPECT_EQ(run("div.a", "<div\tclass=\"a\">x</div>").selectors, 1u);
@@ -472,7 +472,7 @@ TEST(ParserExtra, DISABLED_NewlineAndTabInsideTag)
 }
 
 // class is compared against the whole attribute value
-TEST(ParserExtra, DISABLED_MultipleClassesInOneAttribute)
+TEST(ParserExtra, MultipleClassesInOneAttribute)
 {
     EXPECT_EQ(run("div.a", "<div class=\"a b\">x</div><div class=\"b a\">y</div>").selectors, 2u);
 }

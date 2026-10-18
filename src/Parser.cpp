@@ -2,6 +2,7 @@
 #include <iostream>
 #include <bit>
 #include <string_view>
+#include <cstring>
 
 namespace
 {
@@ -253,7 +254,7 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
         }
         case State::TAG_NAME:
         {
-            if (is_space(c))
+            if (c == '>' || c == '/' || is_space(c))
             {
 
                 for (size_t k = 0; k < count; k++)
@@ -321,47 +322,6 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
             {
                 attribute_position = 0;
                 name_ended = false;
-                ;
-            }
-
-            if (attribute_position == 0)
-            {
-
-                candidate_attribute = Attribute::UNKNOWN;
-                attribute_matches = false;
-
-                if (c == 'i')
-                {
-                    candidate_attribute = Attribute::ID;
-                    attribute_matches = true;
-                }
-                else if (c == 'c')
-                {
-                    candidate_attribute = Attribute::CLASSNAME;
-                    attribute_matches = true;
-                }
-                attribute_position++;
-                break;
-            }
-
-            // verifying ID
-            if (candidate_attribute == Attribute::ID)
-            {
-
-                if (attribute_position >= 2 || c != "id"[attribute_position])
-                {
-                    attribute_matches = false;
-                }
-            }
-
-            // verifying CLASS
-            else if (candidate_attribute == Attribute::CLASSNAME)
-            {
-
-                if (attribute_position >= 5 || c != "class"[attribute_position])
-                {
-                    attribute_matches = false;
-                }
             }
 
             if (c == '>')
@@ -422,6 +382,46 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                 break;
             }
 
+            if (attribute_position == 0)
+            {
+
+                candidate_attribute = Attribute::UNKNOWN;
+                attribute_matches = false;
+
+                if (c == 'i')
+                {
+                    candidate_attribute = Attribute::ID;
+                    attribute_matches = true;
+                }
+                else if (c == 'c')
+                {
+                    candidate_attribute = Attribute::CLASSNAME;
+                    attribute_matches = true;
+                }
+                attribute_position++;
+                break;
+            }
+
+            // verifying ID
+            if (candidate_attribute == Attribute::ID)
+            {
+
+                if (attribute_position >= 2 || c != "id"[attribute_position])
+                {
+                    attribute_matches = false;
+                }
+            }
+
+            // verifying CLASS
+            else if (candidate_attribute == Attribute::CLASSNAME)
+            {
+
+                if (attribute_position >= 5 || c != "class"[attribute_position])
+                {
+                    attribute_matches = false;
+                }
+            }
+
             attribute_position++;
 
             break;
@@ -440,6 +440,7 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
         }
         case State::ATTRIBUTE_VALUE:
         {
+
             if (c == quote_char)
             {
                 for (size_t k = 0; k < count; k++)
@@ -468,7 +469,8 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                     }
                 }
 
-                attr_value_match_count += std::popcount(attribute_value_mask);
+                const uint32_t already = (currect_attribute == Attribute::ID) ? id_mask : class_mask;
+                attr_value_match_count += std::popcount(attribute_value_mask & ~already);
 
                 switch (currect_attribute)
                 {
@@ -485,6 +487,8 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                 }
 
                 attribute_position = 0;
+                name_ended = false;
+
                 value_position = 0;
 
                 attribute_matches = false;
@@ -495,6 +499,26 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
 
                 state = State::ATTRIBUTE_NAME;
 
+                break;
+            }
+
+            if (is_space(c) && currect_attribute == Attribute::CLASSNAME)
+            {
+
+                for (size_t k = 0; k < count; k++)
+                {
+                    if (!(attribute_value_mask & (1u << k)))
+                        continue;
+                    if (value_position != parts[k].class_name.length)
+                        attribute_value_mask &= ~(1u << k);
+                }
+
+                const uint32_t already = (currect_attribute == Attribute::ID) ? id_mask : class_mask;
+                attr_value_match_count += std::popcount(attribute_value_mask & ~already);
+                class_mask |= attribute_value_mask;
+
+                attribute_value_mask = candidate_attribute_mask;
+                value_position = 0;
                 break;
             }
 
