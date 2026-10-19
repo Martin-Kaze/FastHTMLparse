@@ -167,15 +167,11 @@ void Parser::finish_tag_set_state(const size_t id_required_mask, const size_t cl
 void Parser::match_tag_char(const char c, const SelectorParser::SelectorPart *parts, size_t count)
 {
 
-    for (size_t k = 0; k < count; k++)
+    for (uint32_t m = tag_match_mask; m; m &= m - 1)
     {
-        if (!(tag_match_mask & (1u << k)))
-            continue;
-        if (tag_position >= parts[k].tag.length ||
-            c != parts[k].tag.ptr[tag_position])
-        {
-            tag_match_mask = tag_match_mask & ~(1u << k);
-        }
+        unsigned k = std::countr_zero(m);
+        if (tag_position >= parts[k].tag.length || c != parts[k].tag.ptr[tag_position])
+            tag_match_mask &= ~(1u << k);
     }
 }
 
@@ -191,9 +187,8 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
 
     size_t id_required_mask = selectorParser.get_id_required_mask();
     size_t class_required_mask = selectorParser.get_class_required_mask();
-    size_t child_mask = selectorParser.get_child_mask();
-     size_t desc_mask = selectorParser.get_desc_mask();
-    
+    uint32_t child_mask = selectorParser.get_child_mask();
+    uint32_t desc_mask = selectorParser.get_desc_mask();
 
     for (size_t i = 0; i < size; i++)
     {
@@ -251,7 +246,6 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                 closing = true;
                 state = State::TAG_NAME;
 
-                candidate_mask = 0;
                 tag_match_mask = 0;
             }
             else
@@ -336,7 +330,6 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                     closing = true;
                     tag_position = 0;
                     tag_match_mask = 0;
-                    candidate_mask = 0;
                     state = State::TAG_NAME;
                 }
             }
@@ -350,15 +343,14 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
             if (c == '>' || c == '/' || is_space(c))
             {
 
-                for (size_t k = 0; k < count; k++)
-                {
-                    if (!(tag_match_mask & (1u << k)))
-                        continue;
-                    if (tag_position != parts[k].tag.length)
+                
+                    for (uint32_t m = tag_match_mask; m; m &= m - 1)
                     {
-                        tag_match_mask = tag_match_mask & ~(1u << k);
+                        unsigned k = std::countr_zero(m);
+                        if (tag_position != parts[k].tag.length)
+                            tag_match_mask &= ~(1u << k);
                     }
-                }
+                
 
                 if (c == '>')
                 {
@@ -373,13 +365,7 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                     state = State::ATTRIBUTE_NAME;
                 }
 
-                for (size_t k = 0; k < count; k++)
-                {
-                    if (tag_match_mask & (1u << k))
-                    {
-                        tag_match_count++;
-                    }
-                }
+                tag_match_count += std::popcount(tag_match_mask);
             }
             else
             {
@@ -548,10 +534,9 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
 
             if (value_ended)
             {
-                for (size_t k = 0; k < count; k++)
+                for (uint32_t m = attribute_value_mask; m; m &= m - 1)
                 {
-                    if (!(attribute_value_mask & (1u << k)))
-                        continue;
+                    unsigned k = std::countr_zero(m);
 
                     switch (currect_attribute)
                     {
@@ -615,10 +600,9 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
             if (!unquoted && is_space(c) && currect_attribute == Attribute::CLASSNAME)
             {
 
-                for (size_t k = 0; k < count; k++)
+                for (uint32_t m = attribute_value_mask; m; m &= m - 1)
                 {
-                    if (!(attribute_value_mask & (1u << k)))
-                        continue;
+                    unsigned k = std::countr_zero(m);
                     if (value_position != parts[k].class_name.length)
                         attribute_value_mask &= ~(1u << k);
                 }
@@ -632,10 +616,9 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                 break;
             }
 
-            for (size_t k = 0; k < count; k++)
+            for (uint32_t m = attribute_value_mask; m; m &= m - 1)
             {
-                if (!(attribute_value_mask & (1u << k)))
-                    continue;
+                unsigned k = std::countr_zero(m);
 
                 if (currect_attribute == Attribute::ID)
                 {
