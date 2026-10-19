@@ -26,6 +26,9 @@ Makefile
 *.pdb
 *.ilk
 
+# tests
+*.html
+
 # OS
 .DS_Store
 Thumbs.db
