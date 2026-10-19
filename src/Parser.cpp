@@ -164,10 +164,10 @@ void Parser::finish_tag_set_state(const size_t id_required_mask, const size_t cl
         state = State::DATA;
 }
 
-void Parser::match_tag_char(const char c, const SelectorParser::SelectorPart *parts, size_t count)
+void Parser::match_tag_char(const char c, const SelectorParser::SelectorPart *parts, size_t count, const uint32_t any_tag_mask)
 {
 
-    for (uint32_t m = tag_match_mask; m; m &= m - 1)
+    for (uint32_t m = tag_match_mask & ~any_tag_mask; m; m &= m - 1)
     {
         unsigned k = std::countr_zero(m);
         if (tag_position >= parts[k].tag.length || c != parts[k].tag.ptr[tag_position])
@@ -189,6 +189,7 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
     size_t class_required_mask = selectorParser.get_class_required_mask();
     uint32_t child_mask = selectorParser.get_child_mask();
     uint32_t desc_mask = selectorParser.get_desc_mask();
+    uint32_t any_tag_mask = selectorParser.get_any_tag_mask();
 
     const uint8_t flags = selectorParser.get_flags();
     const bool has_id = flags & 1;
@@ -269,7 +270,7 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                 }
                 match_void_tag_char(c);
                 match_raw_tag_char(c);
-                match_tag_char(c, parts, count);
+                match_tag_char(c, parts, count, any_tag_mask);
 
                 tag_position++;
             }
@@ -348,7 +349,7 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
             if (c == '>' || c == '/' || is_space(c))
             {
 
-                for (uint32_t m = tag_match_mask; m; m &= m - 1)
+                for (uint32_t m = tag_match_mask & ~any_tag_mask; m; m &= m - 1)
                 {
                     unsigned k = std::countr_zero(m);
                     if (tag_position != parts[k].tag.length)
@@ -381,7 +382,7 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                     }
                     match_void_tag_char(c);
                     match_raw_tag_char(c);
-                    match_tag_char(c, parts, count);
+                    match_tag_char(c, parts, count, any_tag_mask);
                 }
 
                 tag_position++;

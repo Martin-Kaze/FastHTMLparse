@@ -92,7 +92,7 @@ class Parser
 
     void finish_tag_set_state(const size_t id_required_mask, const size_t class_required_mask, const size_t count);
 
-    void match_tag_char(const char c, const SelectorParser::SelectorPart *parts, size_t count);
+    void match_tag_char(const char c, const SelectorParser::SelectorPart *parts, size_t count, const uint32_t any_tag_mask);
 
     using MatchCallback = void (*)(std::string_view, void *);
 

@@ -602,3 +602,6 @@ TEST(QuoteSkip, FullDoc)
     ChunkInvariant("p", kFullDoc);
     ChunkInvariant("p.note", kFullDoc);
 }
+// id or class with no tags
+TEST(Tagless, ClassOnly) { EXPECT_EQ(run(".b", "<div class=\"b\">").selectors, 1u); }
+TEST(Tagless, IdOnly)    { EXPECT_EQ(run("#main", "<div id=\"main\">").selectors, 1u); }

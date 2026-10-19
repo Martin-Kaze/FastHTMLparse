@@ -36,6 +36,7 @@ public:
     size_t get_class_required_mask() const;
     size_t get_desc_mask() const;
     size_t get_child_mask() const;
+    size_t get_any_tag_mask() const;
 
     uint8_t get_flags() const;
 
@@ -46,9 +47,10 @@ private:
     size_t class_required_mask = 0;
     size_t child_mask = 0;
     size_t desc_mask = 0;
+    size_t any_tag_mask = 0;
 
     uint8_t flags = 0;
-    
+
     SelectorPart parts[16];
     size_t count = 0;
 };
