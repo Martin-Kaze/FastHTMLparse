@@ -25,13 +25,14 @@ void Parser::match_raw_tag_char(char c)
 {
     for (size_t k = 0; k < 2; ++k)
     {
-        if (!(raw_tag_mask & (1u << k))) continue;
+        if (!(raw_tag_mask & (1u << k)))
+            continue;
         if (tag_position >= raw_tags[k].size() || c != raw_tags[k][tag_position])
             raw_tag_mask &= ~(1u << k);
     }
 }
 
-int Parser::current_raw_tag() const      
+int Parser::current_raw_tag() const
 {
     for (size_t k = 0; k < 2; ++k)
         if ((raw_tag_mask & (1u << k)) && tag_position == raw_tags[k].size())
@@ -154,13 +155,13 @@ void Parser::finish_tag_set_state(const size_t id_required_mask, const size_t cl
         }
     }
     if (raw >= 0)
-{
-    raw_kind = raw;
-    raw_match = 0;
-    state = State::RAWTEXT;
-}
-else
-    state = State::DATA;
+    {
+        raw_kind = raw;
+        raw_match = 0;
+        state = State::RAWTEXT;
+    }
+    else
+        state = State::DATA;
 }
 
 void Parser::match_tag_char(const char c, const SelectorParser::SelectorPart *parts, size_t count)
@@ -190,6 +191,9 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
 
     size_t id_required_mask = selectorParser.get_id_required_mask();
     size_t class_required_mask = selectorParser.get_class_required_mask();
+    size_t child_mask = selectorParser.get_child_mask();
+     size_t desc_mask = selectorParser.get_desc_mask();
+    
 
     for (size_t i = 0; i < size; i++)
     {
@@ -230,25 +234,6 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                 void_match_mask = all_void_candidates;
                 raw_tag_mask = 3; // last 2 bits are 11
                 closing = false;
-
-                candidate_mask = 0;
-
-                for (size_t k = 0; k < count; k++)
-                {
-
-                    if (k == 0)
-                    {
-                        candidate_mask = candidate_mask | (1 << 0);
-                    }
-                    else
-                    {
-                        const uint32_t src = (parts[k].relation == SelectorParser::Relation::CHILD)
-                                                 ? match_stack[depth]
-                                                 : any_stack[depth];
-                        if (src & (1u << (k - 1)))
-                            candidate_mask |= 1u << k;
-                    }
-                }
             }
             break;
         }
@@ -276,7 +261,9 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                 class_mask = 0;
 
                 closing = false;
-                tag_match_mask = candidate_mask;
+
+                tag_match_mask = 1u | ((match_stack[depth] << 1) & child_mask) | ((any_stack[depth] << 1) & desc_mask);
+
                 if (c >= 'A' && c <= 'Z')
                 {
                     c += 'a' - 'A';
