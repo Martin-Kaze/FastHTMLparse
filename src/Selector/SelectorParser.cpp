@@ -6,6 +6,7 @@ void SelectorParser::parsring(SelectorLexer &selectorLexer)
     count = 0;
     id_required_mask = 0;
     class_required_mask = 0;
+    flags =0;
 
     const auto *tokens = selectorLexer.get_tokens();
     const size_t token_count = selectorLexer.get_count();
@@ -84,6 +85,10 @@ void SelectorParser::parsring(SelectorLexer &selectorLexer)
             desc_mask |= 1u << k;
         }
     }
+
+    flags = (id_required_mask    != 0) << 0
+      | (class_required_mask != 0) << 1
+      | ((child_mask | desc_mask) != 0) << 2;
 }
 
 const SelectorParser::SelectorPart *SelectorParser::get_parts() const
@@ -108,7 +113,7 @@ size_t SelectorParser::get_class_required_mask() const
     return class_required_mask;
 }
 
-size_t SelectorParser:: get_child_mask() const
+size_t SelectorParser::get_child_mask() const
 {
 
     return child_mask;
@@ -118,4 +123,9 @@ size_t SelectorParser::get_desc_mask() const
 {
 
     return desc_mask;
+}
+
+uint8_t SelectorParser::get_flags() const
+{
+    return flags;
 }

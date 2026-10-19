@@ -190,6 +190,11 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
     uint32_t child_mask = selectorParser.get_child_mask();
     uint32_t desc_mask = selectorParser.get_desc_mask();
 
+    const uint8_t flags = selectorParser.get_flags();
+    const bool has_id = flags & 1;
+    const bool has_class = flags & 2;
+    const bool has_rel = flags & 4;
+
     for (size_t i = 0; i < size; i++)
     {
 
@@ -343,14 +348,12 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
             if (c == '>' || c == '/' || is_space(c))
             {
 
-                
-                    for (uint32_t m = tag_match_mask; m; m &= m - 1)
-                    {
-                        unsigned k = std::countr_zero(m);
-                        if (tag_position != parts[k].tag.length)
-                            tag_match_mask &= ~(1u << k);
-                    }
-                
+                for (uint32_t m = tag_match_mask; m; m &= m - 1)
+                {
+                    unsigned k = std::countr_zero(m);
+                    if (tag_position != parts[k].tag.length)
+                        tag_match_mask &= ~(1u << k);
+                }
 
                 if (c == '>')
                 {
@@ -514,6 +517,15 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                 value_position = 0;
                 state = State::ATTRIBUTE_VALUE;
                 attribute_value_mask = candidate_attribute_mask;
+
+                if (attribute_value_mask == 0) 
+                {
+                    const char *q = static_cast<const char *>(
+                        std::memchr(buf + i + 1, c, size - i - 1));
+                    if (!q)
+                        return;                           
+                    i = static_cast<size_t>(q - buf) - 1;
+                }
             }
             else if (!is_space(c) && c != '>')
             {

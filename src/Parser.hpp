@@ -45,6 +45,7 @@ class Parser
         SRC
     };
 
+    
     State state = State::DATA;
 
     bool closing = false;
