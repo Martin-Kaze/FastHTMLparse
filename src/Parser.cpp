@@ -251,8 +251,8 @@ void Parser::run(const char *buf, size_t size, SelectorParser &selectorParser)
             {
                 closing = true;
                 state = State::TAG_NAME;
-
                 tag_match_mask = 0;
+                break;
             }
             if (c == '?')
             {
