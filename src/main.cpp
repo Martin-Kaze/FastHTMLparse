@@ -66,6 +66,21 @@ int main(int argc, char **argv)
         vals = parser.get_attr_val_match_count();
         sels = parser.get_selector_match_count();
         callbacks = cb_count;
+
+        #ifdef PARSER_STATS
+if (r == RUNS - 1) {
+    const char *names[] = {
+    "DATA", "TAG_OPEN", "TAG_NAME", "ATTRIBUTE_NAME", "ATTRIBUTE_VALUE",
+    "ATTRIBUTE_VALUE_START", "AFTER_BANG", "COMMENT", "MARKUP_DECL", "RAWTEXT",
+    "BEFORE_ATTRIBUTE_NAME", "AFTER_ATTRIBUTE_NAME" };
+    size_t tb = 0, ti = 0;
+    for (int s = 0; s < 16; s++) { tb += parser.stat_bytes[s]; ti += parser.stat_iters[s]; }
+    for (int s = 0; s < (int)std::size(names); s++)
+        printf("%-24s bytes %6.2f%%  iters %6.2f%%  (%zu iters)\n", names[s],
+               100.0 * parser.stat_bytes[s] / tb, 100.0 * parser.stat_iters[s] / ti, parser.stat_iters[s]);
+    printf("iters per KB: %.1f\n", 1024.0 * ti / tb);
+}
+#endif
     }
 
     std::cout << "selector:  " << query << "\n"

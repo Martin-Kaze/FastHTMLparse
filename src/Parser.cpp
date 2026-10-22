@@ -195,7 +195,11 @@ void Parser::run(const char *buf, size_t size, SelectorParser &selectorParser)
     for (size_t i = 0; i < size; i++)
     {
 
-        char c = *(buf + i);
+        #ifdef PARSER_STATS
+    const int st = (int)state;
+    const size_t i0 = i;
+#endif
+    char c = buf[i];
 
         switch (state)
         {
@@ -633,6 +637,10 @@ void Parser::run(const char *buf, size_t size, SelectorParser &selectorParser)
             break;
         }
         }
+        #ifdef PARSER_STATS
+    stat_iters[st]++;
+    stat_bytes[st] += i - i0 + 1;
+#endif
     }
 }
 

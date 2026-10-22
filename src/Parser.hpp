@@ -7,6 +7,7 @@
 #include "./Selector/SelectorParser.hpp"
 #include <bit>
 
+
 class Parser
 {
     std::string current_text;
@@ -111,4 +112,10 @@ public:
     size_t get_attr_match_count() const;
     size_t get_attr_val_match_count() const;
     size_t get_selector_match_count() const;
+
+    #ifdef PARSER_STATS
+    size_t stat_bytes[16]{};
+    size_t stat_iters[16]{};
+#endif
+
 };
