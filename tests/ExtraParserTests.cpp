@@ -605,3 +605,312 @@ TEST(QuoteSkip, FullDoc)
 // id or class with no tags
 TEST(Tagless, ClassOnly) { EXPECT_EQ(run(".b", "<div class=\"b\">").selectors, 1u); }
 TEST(Tagless, IdOnly)    { EXPECT_EQ(run("#main", "<div id=\"main\">").selectors, 1u); }
+
+// ===================================================== V3 regression tests
+
+// ---------------------------------------------------------- tag names (v3a)
+
+TEST(V3Tag, MixedCaseTagName)
+{
+    Out r = run("div", "<DiV>x</dIv>");
+    EXPECT_EQ(r.selectors, 1u);
+    EXPECT_EQ(r.texts, L({"x"}));
+}
+
+TEST(V3Tag, TagNameSplitAcrossCalls)
+{
+    Out r = run("div", "<DIV>x</DIV>", 3); // "<DI" | "V>x" | "</D" | "IV>"
+    EXPECT_EQ(r.selectors, 1u);
+    EXPECT_EQ(r.texts, L({"x"}));
+}
+
+TEST(V3Tag, WhitespaceEndsTagName)
+{
+    EXPECT_EQ(run("div", "<div\n>x</div>").selectors, 1u);
+    EXPECT_EQ(run("div.a", "<div\tclass=\"a\">x</div>").selectors, 1u);
+}
+
+TEST(V3Tag, LongTagNameDoesNotBreakParsing)
+{
+    const std::string t(40, 'q');
+    const std::string html = "<" + t + ">in</" + t + "><div>y</div>";
+    Out r = run("div", html.c_str());
+    EXPECT_EQ(r.selectors, 1u);
+    EXPECT_EQ(r.texts, L({"y"}));
+}
+
+TEST(V3Tag, LongTagNameKeepsTaglessParts)
+{
+    const std::string t(40, 'q');
+    const std::string html = "<" + t + " class=\"x\">in</" + t + ">";
+    EXPECT_EQ(run(".x", html.c_str()).selectors, 1u);
+}
+
+TEST(V3Tag, TagNameOf32CharsStillMatches)
+{
+    const std::string t(32, 'q');
+    const std::string html = "<" + t + ">x</" + t + ">";
+    Out r = run(t.c_str(), html.c_str());
+    EXPECT_EQ(r.selectors, 1u);
+    EXPECT_EQ(r.texts, L({"x"}));
+}
+
+TEST(V3Tag, SlashAfterNonVoidTagStillOpensIt)
+{
+    Out r = run("div", "<div/>x</div>");
+    EXPECT_EQ(r.selectors, 1u);
+    EXPECT_EQ(r.texts, L({"x"}));
+}
+
+TEST(V3Tag, SlashThenAttribute)
+{
+    EXPECT_EQ(run("div.a", "<div/class=\"a\">x</div>").selectors, 1u);
+}
+
+TEST(V3Tag, RawTagNeedsExactName)
+{
+    Out r = run("div", "<scripts><div>x</div></scripts><scrip><div>y</div></scrip>");
+    EXPECT_EQ(r.selectors, 2u);
+    EXPECT_EQ(r.texts, L({"x", "y"}));
+}
+
+// ------------------------------------------------- '<' that is not a tag
+
+TEST(V3Open, LessThanSpaceIsText)
+{
+    Out r = run("div", "<div>a < b</div>");
+    EXPECT_EQ(r.selectors, 1u);
+    EXPECT_EQ(r.texts, L({"a < b"}));
+}
+
+TEST(V3Open, LessThanDigitIsText)
+{
+    EXPECT_EQ(run("div", "<div>x<3</div>").texts, L({"x<3"}));
+}
+
+TEST(V3Open, DoubleLessThan)
+{
+    Out r = run("div", "<div>a<<b>c</b></div>");
+    EXPECT_EQ(r.selectors, 1u);
+    EXPECT_EQ(r.texts, L({"a<c"}));
+}
+
+TEST(V3Open, XmlDeclarationSkipped)
+{
+    Out r = run("div", "<?xml version=\"1.0\"?><div>x</div>");
+    EXPECT_EQ(r.selectors, 1u);
+    EXPECT_EQ(r.texts, L({"x"}));
+}
+
+TEST(V3Open, LessThanAtEndOfInput)
+{
+    Out r = run("div", "<div>x</div><");
+    EXPECT_EQ(r.selectors, 1u);
+    EXPECT_EQ(r.texts, L({"x"}));
+}
+
+TEST(V3Open, ChunkInvariant)
+{
+    ChunkInvariant("div", "<div>a < b<3 x<<i>y</i></div>");
+    ChunkInvariant("div", "<?xml version=\"1.0\"?><div>x</div>");
+}
+
+// ------------------------------------------------------ attribute names (v3b)
+
+TEST(V3Attr, SpacesAroundEquals)
+{
+    EXPECT_EQ(run("div#m", "<div id = \"m\">x</div>").selectors, 1u);
+    EXPECT_EQ(run("div.a", "<div class =\"a\">x</div>").selectors, 1u);
+    EXPECT_EQ(run("div.a", "<div class= \"a\">x</div>").selectors, 1u);
+    EXPECT_EQ(run("div.a", "<div class\t=\n\"a\">x</div>").selectors, 1u);
+}
+
+TEST(V3Attr, UppercaseAttributeNames)
+{
+    EXPECT_EQ(run("div#m.c", "<div ID=\"m\" CLASS=\"c\">x</div>").selectors, 1u);
+    EXPECT_EQ(run("div#m", "<div iD=\"m\">x</div>").selectors, 1u);
+}
+
+TEST(V3Attr, ValuesStayCaseSensitive)
+{
+    EXPECT_EQ(run("div.a", "<div class=\"A\">x</div>").selectors, 0u);
+    EXPECT_EQ(run("div#m", "<div id=\"M\">x</div>").selectors, 0u);
+}
+
+TEST(V3Attr, BooleanAttributesAnywhere)
+{
+    EXPECT_EQ(run("div#m.c", "<div hidden id=\"m\" data-x class=\"c\" open>x</div>").selectors, 1u);
+    EXPECT_EQ(run("div", "<div hidden>x</div>").selectors, 1u);
+}
+
+TEST(V3Attr, VoidTagWithBooleanAndClass)
+{
+    Out r = run("input.a", "<input disabled class=\"a\">");
+    EXPECT_EQ(r.selectors, 1u);
+    EXPECT_EQ(r.texts, L({""}));
+}
+
+TEST(V3Attr, SlashAfterValue)
+{
+    Out r = run("div.a", "<div class=\"a\"/>x</div>");
+    EXPECT_EQ(r.selectors, 1u);
+    EXPECT_EQ(r.texts, L({"x"}));
+}
+
+TEST(V3Attr, EmptyValues)
+{
+    EXPECT_EQ(run("div.a", "<div id=\"\" class=\"a\">x</div>").selectors, 1u);
+    EXPECT_EQ(run("div#m", "<div id=\"\">x</div>").selectors, 0u);
+}
+
+TEST(V3Attr, NamelessAttributeDoesNotHang)
+{
+    EXPECT_EQ(run("div.a", "<div =\"x\" class=\"a\">t</div>").selectors, 1u);
+}
+
+TEST(V3Attr, GreaterThanRightAfterEquals)
+{
+    Out r = run("div#m", "<div id=>x</div><div id=\"m\">y</div>");
+    EXPECT_EQ(r.selectors, 1u);
+    EXPECT_EQ(r.texts, L({"y"}));
+}
+
+TEST(V3Attr, UnquotedValues)
+{
+    Out r = run("div#m.c", "<div id=m class=c>x</div>");
+    EXPECT_EQ(r.selectors, 1u);
+    EXPECT_EQ(r.texts, L({"x"}));
+}
+
+TEST(V3Attr, ChunkInvariant)
+{
+    ChunkInvariant("div#m.c", "<div  DATA-x='1'  ID = \"m\"\n class\t=\"c\" hidden>x</div>");
+    ChunkInvariant("div#m.c", "<div id=m class=c>x</div><div id=>y</div>");
+    ChunkInvariant("input.a", "<div><input disabled class=\"a\"/><br/>t</div>");
+}
+
+// ------------------------------------------------- script / style (v3c)
+// These pass now and must still pass after the memchr change in RAWTEXT.
+
+TEST(V3Raw, LessThanInsideScript)
+{
+    Out r = run("div", "<script>if(a<b){x()}</script><div>t</div>");
+    EXPECT_EQ(r.selectors, 1u);
+    EXPECT_EQ(r.texts, L({"t"}));
+}
+
+TEST(V3Raw, TagsInsideScriptIgnored)
+{
+    EXPECT_EQ(run("div", "<script>var s=\"<div>\";</script><div>t</div>").selectors, 1u);
+}
+
+TEST(V3Raw, PartialEndTagInsideScript)
+{
+    EXPECT_EQ(run("div", "<script>var s=\"</scr\"+\"ipt>\";</script><div>t</div>").selectors, 1u);
+}
+
+TEST(V3Raw, DoubleLessThanBeforeEnd)
+{
+    EXPECT_EQ(run("div", "<script>x<</script><div>t</div>").selectors, 1u);
+}
+
+TEST(V3Raw, UppercaseEndTags)
+{
+    EXPECT_EQ(run("div", "<SCRIPT>a<b</SCRIPT><style>p{}</STYLE><div>t</div>").selectors, 1u);
+}
+
+TEST(V3Raw, EmptyAndWithAttributes)
+{
+    Out r = run("div", "<script></script><script type=\"text/javascript\" src=\"a.js\"></script><div>t</div>");
+    EXPECT_EQ(r.selectors, 1u);
+    EXPECT_EQ(r.texts, L({"t"}));
+}
+
+TEST(V3Raw, ManyLessThans)
+{
+    std::string html = "<script>";
+    for (int i = 0; i < 1000; ++i)
+        html += "a<b<<c</s ";
+    html += "</script><div>t</div>";
+    EXPECT_EQ(run("div", html.c_str()).selectors, 1u);
+}
+
+TEST(V3Raw, ScriptAsTarget)
+{
+    EXPECT_EQ(run("script", "<script>var a;</script>").selectors, 1u);
+}
+
+TEST(V3Raw, ChunkInvariant)
+{
+    ChunkInvariant("div", "<script>if(a<b){s=\"</scr\"}</script><style>p<q{}</STYLE><div>t</div>");
+    ChunkInvariant("div", "<script type='x'>x<</script><div>t</div><script></script>");
+}
+
+// ------------------------------------------------------------ comments
+
+TEST(V3Comment, EmptyComment)
+{
+    EXPECT_EQ(run("div", "<!----><div>t</div>").selectors, 1u);
+}
+
+TEST(V3Comment, DashesAndGreaterThanInside)
+{
+    Out r = run("div", "<!-- a -- b > c --><!-- x ---><div>t</div>");
+    EXPECT_EQ(r.selectors, 1u);
+    EXPECT_EQ(r.texts, L({"t"}));
+}
+
+TEST(V3Comment, ChunkInvariant)
+{
+    ChunkInvariant("div", "<!-- <div>x</div> --><!----><!-- a--b ---><div>t</div>");
+}
+
+// ------------------------------------------- realistic mix, every chunk size
+
+TEST(V3Mix, WikiLikeSnippet)
+{
+    const char *html =
+        "<?xml version=\"1.0\"?><!DOCTYPE html><HTML><head>"
+        "<script>var c=a<b&&\"</s\";</script><style>a>b{}</STYLE></head>"
+        "<body><!-- nav -- x --><div ID = \"m\" hidden CLASS=nav>"
+        "<a href=\"/w?a=1&b=2\" class=\"x\">one</a> 1 < 2 "
+        "<a class='x' title=\"a>b\">two</a><br/><img src=x.png>"
+        "</div></body></HTML>";
+    Out r = run("div > a.x", html);
+    EXPECT_EQ(r.selectors, 2u);
+    EXPECT_EQ(r.texts, L({"one", "two"}));
+    ChunkInvariant("div > a.x", html);
+    ChunkInvariant("div#m.nav", html);
+}
+
+// ----------------------------- known open bugs (--gtest_also_run_disabled_tests)
+
+// bug 4: nested matches lose the outer element's text
+TEST(V3Known, DISABLED_NestedMatchesKeepOuterText)
+{
+    EXPECT_EQ(run("div div", "<div><div><div>a</div>b</div></div>").texts, L({"a", "ab"}));
+}
+
+// bug 3: an unclosed <p> makes depth drift, <a> looks like a child of the closed div
+TEST(V3Known, DISABLED_UnclosedChildDoesNotLeak)
+{
+    EXPECT_EQ(run("div > a", "<div><p>x</div><a>q</a>").selectors, 0u);
+}
+
+// "</>" should be ignored, not close the div
+TEST(V3Known, DISABLED_EmptyEndTagIgnored)
+{
+    EXPECT_EQ(run("div", "<div>a</>b</div>").texts, L({"ab"}));
+}
+
+// "<!-->" closes the comment per spec
+TEST(V3Known, DISABLED_AbruptCommentClose)
+{
+    EXPECT_EQ(run("div", "<!--><div>t</div>").selectors, 1u);
+}
+
+// "</scriptx" must not end the script
+TEST(V3Known, DISABLED_ScriptEndNeedsDelimiter)
+{
+    EXPECT_EQ(run("div", "<script></scriptx><div>fake</div></script><div>t</div>").texts, L({"t"}));
+}

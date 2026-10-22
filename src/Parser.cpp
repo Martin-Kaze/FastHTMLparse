@@ -332,6 +332,15 @@ void Parser::run(const char *buf, size_t size, SelectorParser &selectorParser)
 
         case State::RAWTEXT:
         {
+             if (raw_match == 0)
+    {
+        const char *lt = static_cast<const char *>(std::memchr(buf + i, '<', size - i));
+        if (!lt)
+            return;                   // rest of this buffer is script/style text
+        i = static_cast<size_t>(lt - buf);
+        c = '<';
+    }
+    
             const char lc = (c >= 'A' && c <= 'Z') ? c + 32 : c;
 
             if (lc == raw_ends[raw_kind][raw_match])
