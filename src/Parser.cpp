@@ -254,6 +254,19 @@ void Parser::run(const char *buf, size_t size, SelectorParser &selectorParser)
 
                 tag_match_mask = 0;
             }
+            if (c == '?')
+            {
+                state = State::MARKUP_DECL;
+                break;
+            }
+            if ((unsigned)((c | 0x20) - 'a') > 25u) // not a letter
+            { 
+                if (collecting)
+                    current_text.push_back('<');
+                state = State::DATA;
+                --i; 
+                break;
+            }
             else
             {
 
