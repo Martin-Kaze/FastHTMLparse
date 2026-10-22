@@ -319,6 +319,7 @@ void Parser::run(const char *buf, size_t size, SelectorParser &selectorParser)
                 dashes = 0;
                 break;
             }
+            break;
 
         case State::MARKUP_DECL:
             if (c == '>')
@@ -376,140 +377,117 @@ void Parser::run(const char *buf, size_t size, SelectorParser &selectorParser)
             }
             else
             {
-                attribute_position = 0;
-                attribute_matches = false;
-                candidate_attribute = Attribute::UNKNOWN;
-                currect_attribute = Attribute::UNKNOWN;
-                state = State::ATTRIBUTE_NAME;
+                state = State::BEFORE_ATTRIBUTE_NAME;
             }
 
             tag_match_count += std::popcount(tag_match_mask);
 
             break;
         }
-        case State::ATTRIBUTE_NAME:
-        {
-            if (is_space(c))
-            {
-                if (attribute_position > 0)
-                {
-                    name_ended = true;
-                }
 
+        case State::BEFORE_ATTRIBUTE_NAME:
+        {
+            while (i < size && (is_space(buf[i]) || buf[i] == '/'))
+            {
+                i++;
+            }
+            if (i == size)
+            {
+                return;
+            }
+            c = buf[i];
+
+            if (c == '>')
+            {
+                finish_tag_set_state<R>(id_required_mask, class_required_mask, count);
                 break;
             }
 
-            if (name_ended)
+            attr_len = 0;
+            state = State::ATTRIBUTE_NAME;
+            --i;
+            break;
+        }
+
+        case State::ATTRIBUTE_NAME:
+        {
+            while (i < size && !(is_space(buf[i]) || buf[i] == '/' || buf[i] == '>' || buf[i] == '='))
             {
-                attribute_position = 0;
-                name_ended = false;
+                if (attr_len < 5)
+                {
+                    attr_buf[attr_len] = (buf[i] >= 'A' && buf[i] <= 'Z') ? buf[i] + 32 : buf[i];
+                }
+                attr_len++;
+                i++;
+            }
+            if (i == size)
+            {
+                return;
+            }
+
+            currect_attribute = Attribute::UNKNOWN;
+
+            if (attr_len == 2 && attr_buf[0] == 'i' && attr_buf[1] == 'd')
+            {
+                currect_attribute = Attribute::ID;
+            }
+            else if (attr_len == 5 && std::memcmp(attr_buf, "class", 5) == 0)
+            {
+                currect_attribute = Attribute::CLASSNAME;
+            }
+
+            state = State::AFTER_ATTRIBUTE_NAME;
+            --i;
+
+            break;
+        }
+
+        case State::AFTER_ATTRIBUTE_NAME:
+        {
+            while (i < size && is_space(buf[i]))
+            {
+                i++;
+            }
+            if (i == size)
+            {
+                return;
+            }
+            c = buf[i];
+
+            if (c == '=')
+            {
+                candidate_attribute_mask = 0;
+                if (currect_attribute != Attribute::UNKNOWN)
+                {
+                    attribute_match_count++;
+                    if constexpr (I)
+                    {
+                        if (currect_attribute == Attribute::ID)
+                            candidate_attribute_mask = tag_match_mask & id_required_mask;
+                    }
+                    if constexpr (C)
+                    {
+                        if (currect_attribute == Attribute::CLASSNAME)
+                            candidate_attribute_mask = tag_match_mask & class_required_mask;
+                    }
+                }
+                value_position = 0;
+                state = State::ATTRIBUTE_VALUE_START;
+                break;
             }
 
             if (c == '>')
             {
                 finish_tag_set_state<R>(id_required_mask, class_required_mask, count);
-
                 break;
             }
 
-            if (c == '=')
-            {
-                name_ended = false;
-                candidate_attribute_mask = 0;
-
-                if (candidate_attribute == Attribute::ID &&
-                    attribute_position != 2)
-                {
-                    attribute_matches = false;
-                }
-                else if (candidate_attribute == Attribute::CLASSNAME &&
-                         attribute_position != 5)
-                {
-                    attribute_matches = false;
-                }
-
-                if (attribute_matches)
-                {
-                    currect_attribute = candidate_attribute;
-                    attribute_match_count++;
-
-                    switch (currect_attribute)
-                    {
-                    case Attribute::ID:
-
-                        if constexpr (I)
-                        {
-                            candidate_attribute_mask = tag_match_mask & id_required_mask;
-                        }
-                        break;
-
-                    case Attribute::CLASSNAME:
-                        if constexpr (C)
-                        {
-                            candidate_attribute_mask = tag_match_mask & class_required_mask;
-                        }
-                        break;
-
-                    default:
-                        break;
-                    }
-                }
-                else
-                {
-                    currect_attribute = Attribute::UNKNOWN;
-                }
-
-                value_position = 0;
-                attr_value_matches = true;
-                state = State::ATTRIBUTE_VALUE_START;
-
-                break;
-            }
-
-            if (attribute_position == 0)
-            {
-
-                candidate_attribute = Attribute::UNKNOWN;
-                attribute_matches = false;
-
-                if (c == 'i')
-                {
-                    candidate_attribute = Attribute::ID;
-                    attribute_matches = true;
-                }
-                else if (c == 'c')
-                {
-                    candidate_attribute = Attribute::CLASSNAME;
-                    attribute_matches = true;
-                }
-                attribute_position++;
-                break;
-            }
-
-            // verifying ID
-            if (candidate_attribute == Attribute::ID)
-            {
-
-                if (attribute_position >= 2 || c != "id"[attribute_position])
-                {
-                    attribute_matches = false;
-                }
-            }
-
-            // verifying CLASS
-            else if (candidate_attribute == Attribute::CLASSNAME)
-            {
-
-                if (attribute_position >= 5 || c != "class"[attribute_position])
-                {
-                    attribute_matches = false;
-                }
-            }
-
-            attribute_position++;
-
+            // e.g. "disabled id=..." : previous attribute had no value, next name starts
+            state = State::BEFORE_ATTRIBUTE_NAME;
+            --i;
             break;
         }
+
         case State::ATTRIBUTE_VALUE_START:
         {
             if (c == '"' || c == '\'')
@@ -535,6 +513,10 @@ void Parser::run(const char *buf, size_t size, SelectorParser &selectorParser)
                 state = State::ATTRIBUTE_VALUE;
                 attribute_value_mask = candidate_attribute_mask;
                 --i;
+            }
+            else if (c == '>')
+            {
+                finish_tag_set_state<R>(id_required_mask, class_required_mask, count);
             }
             break;
         }
@@ -595,18 +577,8 @@ void Parser::run(const char *buf, size_t size, SelectorParser &selectorParser)
                     break;
                 }
 
-                attribute_position = 0;
-                name_ended = false;
-
                 value_position = 0;
-
-                attribute_matches = false;
-                attr_value_matches = true;
-
-                candidate_attribute = Attribute::UNKNOWN;
-                currect_attribute = Attribute::UNKNOWN;
-
-                state = State::ATTRIBUTE_NAME;
+                state = State::BEFORE_ATTRIBUTE_NAME;
 
                 if (c == '>')
                 {

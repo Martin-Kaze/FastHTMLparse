@@ -34,6 +34,8 @@ class Parser
         COMMENT,
         MARKUP_DECL,
         RAWTEXT,
+        BEFORE_ATTRIBUTE_NAME,
+        AFTER_ATTRIBUTE_NAME,
     };
 
     enum class Attribute
@@ -52,22 +54,17 @@ class Parser
     size_t tag_position = 0;
 
     bool tag_matches = true;
-    Attribute candidate_attribute = Attribute::UNKNOWN;
 
     Attribute currect_attribute = Attribute::UNKNOWN;
 
     size_t tag_match_count = 0;
-    bool name_ended = false;
+
     size_t attribute_match_count = 0;
     size_t attr_value_match_count = 0;
-    bool attr_value_matches = true;
 
     size_t selector_match_count = 0;
 
     size_t value_position = 0;
-    size_t attribute_position = 0;
-
-    bool attribute_matches = false;
 
     uint8_t bang_dashes = 0;
     uint8_t dashes = 0;
@@ -103,11 +100,12 @@ class Parser
     char name_buf[32];
     size_t name_len = 0;
 
+    char attr_buf[5]; // first 5 chars is enough to tell if its id or class
+    size_t attr_len = 0;
+
 public:
     void parsring(const char *buf, size_t size, SelectorParser &selectorParser);
     void set_match_callback(MatchCallback callback, void *context = nullptr);
- 
-
 
     size_t get_tag_match_count() const;
     size_t get_attr_match_count() const;
