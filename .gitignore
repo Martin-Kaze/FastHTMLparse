@@ -32,3 +32,10 @@ Makefile
 # OS
 .DS_Store
 Thumbs.db
+
+build*/
+nolto.txt
+lto.txt
+new.txt
+v2b.txt
+bench.sh
