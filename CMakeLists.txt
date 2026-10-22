@@ -11,6 +11,11 @@ endif()
 
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -DNDEBUG")
 
+option(USE_LTO "Enable LTO" ON)
+if(USE_LTO)
+  set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
+endif()
+
 add_executable(main
     src/main.cpp
     src/Parser.cpp
