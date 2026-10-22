@@ -1,0 +1,7 @@
+0  div                                sel=37700 cb=27700  974 MB/s
+1  div#mw-aria-live-region            sel=100 cb=100  776 MB/s
+2  div.mw-aria-live-region            sel=100 cb=100  960 MB/s
+3  div#mw-aria-live-region.mw-aria-live-region sel=100 cb=100  758 MB/s
+4  div > div                          sel=11900 cb=5800  971 MB/s
+5  div > div#mw-aria-live-region      sel=0 cb=0  965 MB/s
+6  div > div.mw-aria-live-region      sel=0 cb=0  773 MB/s
