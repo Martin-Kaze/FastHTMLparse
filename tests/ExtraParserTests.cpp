@@ -535,3 +535,73 @@ TEST(ParserExtra, DescendantDeep)
     EXPECT_EQ(r.selectors, 1u);
     EXPECT_EQ(r.texts, L({"x"}));
 }
+
+// '>' inside a quoted value must not end the tag.
+TEST(QuoteSkip, GreaterThanInsideValue)
+{
+    EXPECT_EQ(run("a", "<a title=\"x><a>y\"></a>").tags, 1u);
+}
+
+// A '"' inside a single-quoted value: the search must use the opening quote.
+TEST(QuoteSkip, SingleQuoteWithDoubleInside)
+{
+    EXPECT_EQ(run("a", "<a title='it\"s'><a>").tags, 2u);
+}
+
+// Wrong tag: id value is skipped, nothing counted.
+TEST(QuoteSkip, WrongTagSkipsValue)
+{
+    Out o = run("div#main", "<span id=\"main\">");
+    EXPECT_EQ(o.tags, 0u);
+    EXPECT_EQ(o.attr_vals, 0u);
+    EXPECT_EQ(o.selectors, 0u);
+}
+
+TEST(QuoteSkip, IdMatches)
+{
+    Out o = run("div#main", "<div id=\"main\">");
+    EXPECT_EQ(o.tags, 1u);
+    EXPECT_EQ(o.attr_vals, 1u);
+    EXPECT_EQ(o.selectors, 1u);
+}
+
+TEST(QuoteSkip, IdDiffers)
+{
+    Out o = run("div#main", "<div id=\"mai\"><div id=\"mainx\">");
+    EXPECT_EQ(o.attr_vals, 0u);
+    EXPECT_EQ(o.selectors, 0u);
+}
+
+TEST(QuoteSkip, ClassList)
+{
+    Out o = run("div.b", "<div class=\"a b\">");
+    EXPECT_EQ(o.attr_vals, 1u);
+    EXPECT_EQ(o.selectors, 1u);
+}
+
+// Skipped href (contains '>') followed by a real id.
+TEST(QuoteSkip, SkipThenMatch)
+{
+    Out o = run("div#main", "<div href=\"/x>y\" id=\"main\">");
+    EXPECT_EQ(o.attr_vals, 1u);
+    EXPECT_EQ(o.selectors, 1u);
+}
+
+// Every chunk size, including 1 (quote is the last byte of a chunk).
+TEST(QuoteSkip, ChunkInvariant)
+{
+    ChunkInvariant("a", "<a title=\"x>y\"><a href='q\"r'>t</a></a>");
+    ChunkInvariant("div#main", "<div href=\"/x>y\" id=\"main\">hi</div>");
+    ChunkInvariant("div.b", "<div class=\"a b\" title=\"z\">x</div>");
+    ChunkInvariant("div#main", "<span id=\"main\"><div id=\"main\">t</div></span>");
+}
+
+// Full document with a skipped-attribute selector.
+TEST(QuoteSkip, FullDoc)
+{
+    ChunkInvariant("p", kFullDoc);
+    ChunkInvariant("p.note", kFullDoc);
+}
+// id or class with no tags
+TEST(Tagless, ClassOnly) { EXPECT_EQ(run(".b", "<div class=\"b\">").selectors, 1u); }
+TEST(Tagless, IdOnly)    { EXPECT_EQ(run("#main", "<div id=\"main\">").selectors, 1u); }
