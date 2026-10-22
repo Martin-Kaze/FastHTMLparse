@@ -21,17 +21,6 @@ namespace
 
 }
 
-void Parser::match_raw_tag_char(char c)
-{
-    for (size_t k = 0; k < 2; ++k)
-    {
-        if (!(raw_tag_mask & (1u << k)))
-            continue;
-        if (tag_position >= raw_tags[k].size() || c != raw_tags[k][tag_position])
-            raw_tag_mask &= ~(1u << k);
-    }
-}
-
 int Parser::current_raw_tag() const
 {
     for (size_t k = 0; k < 2; ++k)
@@ -44,26 +33,6 @@ void Parser::set_match_callback(MatchCallback callback, void *context)
 {
     on_match = callback;
     callback_context = context;
-}
-
-void Parser::match_void_tag_char(char c)
-{
-
-    for (size_t k = 0; k < void_tag_count; ++k)
-    {
-        const uint32_t bit = uint32_t{1} << k;
-
-        if ((void_match_mask & bit) == 0)
-        {
-            continue;
-        }
-
-        if (tag_position >= void_tags[k].size() ||
-            c != void_tags[k][tag_position])
-        {
-            void_match_mask &= ~bit;
-        }
-    }
 }
 
 bool Parser::current_tag_is_void() const
@@ -168,20 +137,47 @@ void Parser::finish_tag_set_state(const size_t id_required_mask, const size_t cl
         state = State::DATA;
 }
 
-void Parser::match_tag_char(const char c, const SelectorParser::SelectorPart *parts, size_t count, const uint32_t any_tag_mask)
-{
-
-    for (uint32_t m = tag_match_mask & ~any_tag_mask; m; m &= m - 1)
-    {
-        unsigned k = std::countr_zero(m);
-        if (tag_position >= parts[k].tag.length || c != parts[k].tag.ptr[tag_position])
-            tag_match_mask &= ~(1u << k);
-    }
-}
-
 static inline bool is_space(char c)
 {
     return c == ' ' || c == '\n' || c == '\t' || c == '\r' || c == '\f';
+}
+
+void Parser::match_tag_name(const char *name, size_t len, const SelectorParser::SelectorPart *parts, uint32_t any_tag_mask)
+{
+    //  no real tag name is > 32,
+    if (len > 32)
+    {
+        tag_match_mask &= any_tag_mask;
+        void_match_mask = 0;
+        raw_tag_mask = 0;
+        return;
+    }
+
+    const std::string_view n(name, len);
+
+    for (uint32_t m = tag_match_mask & ~any_tag_mask; m; m &= m - 1)
+    {
+        const unsigned k = std::countr_zero(m);
+        const std::string_view want(parts[k].tag.ptr, parts[k].tag.length);
+        if (want != n)
+            tag_match_mask &= ~(1u << k);
+    }
+
+    void_match_mask = 0;
+    for (size_t k = 0; k < void_tag_count; k++)
+        if (void_tags[k] == n)
+        {
+            void_match_mask = 1u << k;
+            break;
+        }
+
+    raw_tag_mask = 0;
+    for (size_t k = 0; k < 2; k++)
+        if (raw_tags[k] == n)
+        {
+            raw_tag_mask = 1u << k;
+            break;
+        }
 }
 
 template <bool I, bool C, bool R>
@@ -232,8 +228,7 @@ void Parser::run(const char *buf, size_t size, SelectorParser &selectorParser)
             {
                 state = State::TAG_OPEN;
                 tag_position = 0;
-                void_match_mask = all_void_candidates;
-                raw_tag_mask = 3; // last 2 bits are 11
+                name_len = 0;
                 closing = false;
             }
             break;
@@ -260,43 +255,29 @@ void Parser::run(const char *buf, size_t size, SelectorParser &selectorParser)
                 break;
             }
             if ((unsigned)((c | 0x20) - 'a') > 25u) // not a letter
-            { 
+            {
                 if (collecting)
                     current_text.push_back('<');
                 state = State::DATA;
-                --i; 
+                --i;
                 break;
+            }
+            id_mask = 0;
+            class_mask = 0;
+
+            closing = false;
+
+            if constexpr (R)
+            {
+                tag_match_mask = 1u | ((match_stack[depth] << 1) & child_mask) | ((any_stack[depth] << 1) & desc_mask);
             }
             else
             {
-
-                id_mask = 0;
-                class_mask = 0;
-
-                closing = false;
-
-                if constexpr (R)
-                {
-                    tag_match_mask = 1u | ((match_stack[depth] << 1) & child_mask) | ((any_stack[depth] << 1) & desc_mask);
-                }
-                else
-                {
-                    tag_match_mask = 1u;
-                }
-
-                if (c >= 'A' && c <= 'Z')
-                {
-                    c += 'a' - 'A';
-                }
-                match_void_tag_char(c);
-                match_raw_tag_char(c);
-                match_tag_char(c, parts, count, any_tag_mask);
-
-                tag_position++;
+                tag_match_mask = 1u;
             }
 
             state = State::TAG_NAME;
-
+            --i;
             break;
         }
 
@@ -355,6 +336,7 @@ void Parser::run(const char *buf, size_t size, SelectorParser &selectorParser)
                     raw_match = 0;
                     closing = true;
                     tag_position = 0;
+                    name_len = 0;
                     tag_match_mask = 0;
                     state = State::TAG_NAME;
                 }
@@ -366,47 +348,42 @@ void Parser::run(const char *buf, size_t size, SelectorParser &selectorParser)
 
         case State::TAG_NAME:
         {
-            if (c == '>' || c == '/' || is_space(c))
+
+            while (i < size && !(buf[i] == '>' || buf[i] == '/' || is_space(buf[i])))
             {
+                if (name_len < 32)
+                    name_buf[name_len] = (buf[i] >= 'A' && buf[i] <= 'Z') ? buf[i] + 32 : buf[i];
+                name_len++;
+                i++;
+            }
 
-                for (uint32_t m = tag_match_mask & ~any_tag_mask; m; m &= m - 1)
-                {
-                    unsigned k = std::countr_zero(m);
-                    if (tag_position != parts[k].tag.length)
-                        tag_match_mask &= ~(1u << k);
-                }
+            if (i == size)
+            {
+                return; // chunk ended inside the name, state stays TAG_NAME
+            }
 
-                if (c == '>')
-                {
-                    finish_tag_set_state<R>(id_required_mask, class_required_mask, count);
-                }
-                else
-                {
-                    attribute_position = 0;
-                    attribute_matches = false;
-                    candidate_attribute = Attribute::UNKNOWN;
-                    currect_attribute = Attribute::UNKNOWN;
-                    state = State::ATTRIBUTE_NAME;
-                }
+            c = buf[i];
+            tag_position = name_len;
 
-                tag_match_count += std::popcount(tag_match_mask);
+            if (!closing)
+            {
+                match_tag_name(name_buf, name_len, parts, any_tag_mask);
+            }
+
+            if (c == '>')
+            {
+                finish_tag_set_state<R>(id_required_mask, class_required_mask, count);
             }
             else
             {
-
-                if (!closing)
-                {
-                    if (c >= 'A' && c <= 'Z')
-                    {
-                        c += 'a' - 'A';
-                    }
-                    match_void_tag_char(c);
-                    match_raw_tag_char(c);
-                    match_tag_char(c, parts, count, any_tag_mask);
-                }
-
-                tag_position++;
+                attribute_position = 0;
+                attribute_matches = false;
+                candidate_attribute = Attribute::UNKNOWN;
+                currect_attribute = Attribute::UNKNOWN;
+                state = State::ATTRIBUTE_NAME;
             }
+
+            tag_match_count += std::popcount(tag_match_mask);
 
             break;
         }

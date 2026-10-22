@@ -92,19 +92,22 @@ class Parser
 
     template <bool HasRel>
     void finish_tag_set_state(const size_t id_required_mask, const size_t class_required_mask, const size_t count);
-
-    void match_tag_char(const char c, const SelectorParser::SelectorPart *parts, size_t count, const uint32_t any_tag_mask);
+    int current_raw_tag() const;
+    void match_tag_name(const char *name, size_t len, const SelectorParser::SelectorPart *parts, uint32_t any_tag_mask);
 
     using MatchCallback = void (*)(std::string_view, void *);
 
     MatchCallback on_match = nullptr;
     void *callback_context = nullptr;
 
+    char name_buf[32];
+    size_t name_len = 0;
+
 public:
     void parsring(const char *buf, size_t size, SelectorParser &selectorParser);
     void set_match_callback(MatchCallback callback, void *context = nullptr);
-    void match_raw_tag_char(char c);
-    int current_raw_tag() const;
+ 
+
 
     size_t get_tag_match_count() const;
     size_t get_attr_match_count() const;
