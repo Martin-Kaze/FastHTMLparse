@@ -45,7 +45,6 @@ class Parser
         SRC
     };
 
-    
     State state = State::DATA;
 
     bool closing = false;
@@ -83,13 +82,15 @@ class Parser
     uint32_t class_mask = 0;
     uint32_t id_mask = 0;
     uint32_t tag_match_mask = 0;
-    uint32_t candidate_mask = 0;
-    uint32_t parent_mask = 0;
 
     uint32_t attribute_value_mask = 0;
 
     uint32_t candidate_attribute_mask = 0;
 
+    template <bool HasId, bool HasClass, bool HasRel>
+    void run(const char *buf, size_t size, SelectorParser &selectorParser);
+
+    template <bool HasRel>
     void finish_tag_set_state(const size_t id_required_mask, const size_t class_required_mask, const size_t count);
 
     void match_tag_char(const char c, const SelectorParser::SelectorPart *parts, size_t count, const uint32_t any_tag_mask);

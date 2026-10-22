@@ -102,6 +102,7 @@ size_t Parser::get_selector_match_count() const
     return selector_match_count;
 }
 
+template <bool HasRel>
 void Parser::finish_tag_set_state(const size_t id_required_mask, const size_t class_required_mask, const size_t count)
 {
     int raw = closing ? -1 : current_raw_tag();
@@ -131,8 +132,11 @@ void Parser::finish_tag_set_state(const size_t id_required_mask, const size_t cl
             {
                 depth++;
             }
-            match_stack[depth] = matched;
-            any_stack[depth] = any_stack[depth - 1] | matched;
+            if constexpr (HasRel)
+            {
+                match_stack[depth] = matched;
+                any_stack[depth] = any_stack[depth - 1] | matched;
+            }
         }
 
         if (count > 0 && (matched & (1u << (count - 1))))
@@ -180,7 +184,8 @@ static inline bool is_space(char c)
     return c == ' ' || c == '\n' || c == '\t' || c == '\r' || c == '\f';
 }
 
-void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorParser)
+template <bool I, bool C, bool R>
+void Parser::run(const char *buf, size_t size, SelectorParser &selectorParser)
 {
     const auto *parts = selectorParser.get_parts();
     size_t count = selectorParser.get_count();
@@ -190,11 +195,6 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
     uint32_t child_mask = selectorParser.get_child_mask();
     uint32_t desc_mask = selectorParser.get_desc_mask();
     uint32_t any_tag_mask = selectorParser.get_any_tag_mask();
-
-    const uint8_t flags = selectorParser.get_flags();
-    const bool has_id = flags & 1;
-    const bool has_class = flags & 2;
-    const bool has_rel = flags & 4;
 
     for (size_t i = 0; i < size; i++)
     {
@@ -262,7 +262,14 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
 
                 closing = false;
 
-                tag_match_mask = 1u | ((match_stack[depth] << 1) & child_mask) | ((any_stack[depth] << 1) & desc_mask);
+                if constexpr (R)
+                {
+                    tag_match_mask = 1u | ((match_stack[depth] << 1) & child_mask) | ((any_stack[depth] << 1) & desc_mask);
+                }
+                else
+                {
+                    tag_match_mask = 1u;
+                }
 
                 if (c >= 'A' && c <= 'Z')
                 {
@@ -358,7 +365,7 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
 
                 if (c == '>')
                 {
-                    finish_tag_set_state(id_required_mask, class_required_mask, count);
+                    finish_tag_set_state<R>(id_required_mask, class_required_mask, count);
                 }
                 else
                 {
@@ -410,7 +417,7 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
 
             if (c == '>')
             {
-                finish_tag_set_state(id_required_mask, class_required_mask, count);
+                finish_tag_set_state<R>(id_required_mask, class_required_mask, count);
 
                 break;
             }
@@ -440,14 +447,17 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                     {
                     case Attribute::ID:
 
-                        candidate_attribute_mask = tag_match_mask & id_required_mask;
-
+                        if constexpr (I)
+                        {
+                            candidate_attribute_mask = tag_match_mask & id_required_mask;
+                        }
                         break;
 
                     case Attribute::CLASSNAME:
-
-                        candidate_attribute_mask = tag_match_mask & class_required_mask;
-
+                        if constexpr (C)
+                        {
+                            candidate_attribute_mask = tag_match_mask & class_required_mask;
+                        }
                         break;
 
                     default:
@@ -519,12 +529,12 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                 state = State::ATTRIBUTE_VALUE;
                 attribute_value_mask = candidate_attribute_mask;
 
-                if (attribute_value_mask == 0) 
+                if (attribute_value_mask == 0)
                 {
                     const char *q = static_cast<const char *>(
                         std::memchr(buf + i + 1, c, size - i - 1));
                     if (!q)
-                        return;                           
+                        return;
                     i = static_cast<size_t>(q - buf) - 1;
                 }
             }
@@ -578,11 +588,17 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
                 switch (currect_attribute)
                 {
                 case Attribute::ID:
-                    id_mask |= attribute_value_mask;
+                    if constexpr (I)
+                    {
+                        id_mask |= attribute_value_mask;
+                    }
                     break;
 
                 case Attribute::CLASSNAME:
-                    class_mask |= attribute_value_mask;
+                    if constexpr (C)
+                    {
+                        class_mask |= attribute_value_mask;
+                    }
                     break;
 
                 default:
@@ -604,13 +620,13 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
 
                 if (c == '>')
                 {
-                    finish_tag_set_state(id_required_mask, class_required_mask, count);
+                    finish_tag_set_state<R>(id_required_mask, class_required_mask, count);
                 }
 
                 break;
             }
 
-            if (!unquoted && is_space(c) && currect_attribute == Attribute::CLASSNAME)
+            if (C && !unquoted && is_space(c) && currect_attribute == Attribute::CLASSNAME)
             {
 
                 for (uint32_t m = attribute_value_mask; m; m &= m - 1)
@@ -655,5 +671,37 @@ void Parser::parsring(const char *buf, size_t size, SelectorParser &selectorPars
             break;
         }
         }
+    }
+}
+
+void Parser::parsring(const char *b, size_t n, SelectorParser &sp)
+{
+    const uint8_t f = sp.get_flags();
+    switch (f)
+    {
+    case 0:
+        run<0, 0, 0>(b, n, sp);
+        break;
+    case 1:
+        run<1, 0, 0>(b, n, sp);
+        break;
+    case 2:
+        run<0, 1, 0>(b, n, sp);
+        break;
+    case 3:
+        run<1, 1, 0>(b, n, sp);
+        break;
+    case 4:
+        run<0, 0, 1>(b, n, sp);
+        break;
+    case 5:
+        run<1, 0, 1>(b, n, sp);
+        break;
+    case 6:
+        run<0, 1, 1>(b, n, sp);
+        break;
+    case 7:
+        run<1, 1, 1>(b, n, sp);
+        break;
     }
 }
