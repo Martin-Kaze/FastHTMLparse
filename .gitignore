@@ -1,41 +1,35 @@
-# Build
-build/
+# build folders
+build*/
 cmake-build-*/
+out/
 
-# CMake
-CMakeCache.txt
-CMakeFiles/
-cmake_install.cmake
-install_manifest.txt
-compile_commands.json
-CTestTestfile.cmake
-Makefile
-
-# Visual Studio Code
+# editors
 .vscode/
+.idea/
+*.swp
 
-# Executables / object files
+# compiled files
 *.exe
 *.o
 *.obj
 *.a
 *.lib
 *.dll
-
-# Debug
+*.so
+*.dylib
 *.pdb
 *.ilk
 
-# tests
+# HTML test pages (big benchmark files stay local); the examples are kept
 *.html
+!examples/*.html
+
+# scratch bench output (named results go to bench/results/)
+new.txt
+lto.txt
+nolto.txt
+*.zip
 
 # OS
 .DS_Store
 Thumbs.db
-
-build*/
-nolto.txt
-lto.txt
-new.txt
-v2b.txt
-bench.sh

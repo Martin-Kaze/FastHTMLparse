@@ -1,8 +1,7 @@
 #include <gtest/gtest.h>
-#include "Parser.hpp"
-#include "Selector/SelectorLexer.hpp"
-#include "Selector/SelectorParser.hpp"
+#include <fasthtml/fasthtml.hpp>
 
+#include <algorithm>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -23,28 +22,23 @@ namespace
     // chunk = 0 -> whole html in one call, otherwise fed in pieces of `chunk` bytes
     Out run(const char *selector_text, const char *html, size_t chunk = 0, bool callback = true)
     {
-        SelectorLexer lexer;
-        std::string input = selector_text;
-        lexer.query(input);
-
-        SelectorParser selector;
-        selector.parsring(lexer);
-
-        Parser parser;
+        const fasthtml::Selector selector = fasthtml::Selector::compile(selector_text).value();
+        fasthtml::Matcher matcher(selector);
         Out o;
         if (callback)
-            parser.set_match_callback(collect, &o.texts);
+            matcher.on_match(collect, &o.texts);
 
         const size_t n = std::strlen(html);
         if (chunk == 0)
             chunk = n ? n : 1;
         for (size_t off = 0; off < n; off += chunk)
-            parser.parsring(html + off, std::min(chunk, n - off), selector);
+            matcher.feed(html + off, std::min(chunk, n - off));
 
-        o.tags = parser.get_tag_match_count();
-        o.attrs = parser.get_attr_match_count();
-        o.attr_vals = parser.get_attr_val_match_count();
-        o.selectors = parser.get_selector_match_count();
+        const fasthtml::Stats s = matcher.stats();
+        o.tags = s.tag_matches;
+        o.attrs = s.attribute_matches;
+        o.attr_vals = s.attribute_value_matches;
+        o.selectors = s.matches;
         return o;
     }
 
@@ -77,21 +71,21 @@ namespace
 
 // ------------------------------------------------------------- basics
 
-TEST(ParserExtra, EmptyInput)
+TEST(MatcherExtra, EmptyInput)
 {
     Out r = run("div", "");
     EXPECT_EQ(r.tags, 0u);
     EXPECT_EQ(r.selectors, 0u);
 }
 
-TEST(ParserExtra, PlainTextOnly)
+TEST(MatcherExtra, PlainTextOnly)
 {
     Out r = run("div", "hello world");
     EXPECT_EQ(r.tags, 0u);
     EXPECT_EQ(r.selectors, 0u);
 }
 
-TEST(ParserExtra, TwoSiblingDivs)
+TEST(MatcherExtra, TwoSiblingDivs)
 {
     Out r = run("div", "<div>a</div><div>b</div>");
     EXPECT_EQ(r.tags, 2u);
@@ -99,14 +93,14 @@ TEST(ParserExtra, TwoSiblingDivs)
     EXPECT_EQ(r.texts, L({"a", "b"}));
 }
 
-TEST(ParserExtra, NonMatchingTag)
+TEST(MatcherExtra, NonMatchingTag)
 {
     Out r = run("div", "<span>a</span><p>b</p>");
     EXPECT_EQ(r.tags, 0u);
     EXPECT_EQ(r.selectors, 0u);
 }
 
-TEST(ParserExtra, TagNameMustMatchExactly)
+TEST(MatcherExtra, TagNameMustMatchExactly)
 {
     Out r = run("div", "<divx>1</divx><di>2</di><div>3</div>");
     EXPECT_EQ(r.tags, 1u);
@@ -114,34 +108,34 @@ TEST(ParserExtra, TagNameMustMatchExactly)
     EXPECT_EQ(r.texts, L({"3"}));
 }
 
-TEST(ParserExtra, SingleLetterTag)
+TEST(MatcherExtra, SingleLetterTag)
 {
     Out r = run("p", "<p>a</p><pre>b</pre><p>c</p>");
     EXPECT_EQ(r.selectors, 2u);
     EXPECT_EQ(r.texts, L({"a", "c"}));
 }
 
-TEST(ParserExtra, NestedTextWithoutMarkup)
+TEST(MatcherExtra, NestedTextWithoutMarkup)
 {
     Out r = run("div.a", "<div class=\"a\">Hello <b>big</b> world</div>");
     EXPECT_EQ(r.selectors, 1u);
     EXPECT_EQ(r.texts, L({"Hello big world"}));
 }
 
-TEST(ParserExtra, TextOutsideMatchNotCollected)
+TEST(MatcherExtra, TextOutsideMatchNotCollected)
 {
     Out r = run("div", "before<div>in</div>after");
     EXPECT_EQ(r.texts, L({"in"}));
 }
 
-TEST(ParserExtra, EmptyElementEmptyText)
+TEST(MatcherExtra, EmptyElementEmptyText)
 {
     Out r = run("div", "<div></div>");
     EXPECT_EQ(r.selectors, 1u);
     EXPECT_EQ(r.texts, L({""}));
 }
 
-TEST(ParserExtra, WorksWithoutCallback)
+TEST(MatcherExtra, WorksWithoutCallback)
 {
     Out r = run("div", "<div>a</div><div>b</div>", 0, false);
     EXPECT_EQ(r.tags, 2u);
@@ -150,7 +144,7 @@ TEST(ParserExtra, WorksWithoutCallback)
 
 // --------------------------------------------------------- attributes
 
-TEST(ParserExtra, ClassMatch)
+TEST(MatcherExtra, ClassMatch)
 {
     Out r = run("div.a", "<div class=\"a\">x</div>");
     EXPECT_EQ(r.tags, 1u);
@@ -160,7 +154,7 @@ TEST(ParserExtra, ClassMatch)
     EXPECT_EQ(r.texts, L({"x"}));
 }
 
-TEST(ParserExtra, ClassMismatch)
+TEST(MatcherExtra, ClassMismatch)
 {
     Out r = run("div.a", "<div class=\"b\">x</div>");
     EXPECT_EQ(r.tags, 1u);
@@ -168,14 +162,14 @@ TEST(ParserExtra, ClassMismatch)
     EXPECT_EQ(r.selectors, 0u);
 }
 
-TEST(ParserExtra, ClassMustMatchWholeValue)
+TEST(MatcherExtra, ClassMustMatchWholeValue)
 {
     Out r = run("div.a", "<div class=\"ab\">1</div><div class=\"a\">2</div><div class=\"\">3</div>");
     EXPECT_EQ(r.selectors, 1u);
     EXPECT_EQ(r.texts, L({"2"}));
 }
 
-TEST(ParserExtra, IdMatch)
+TEST(MatcherExtra, IdMatch)
 {
     Out r = run("div#main", "<div id=\"main\" class=\"card\">x</div>");
     EXPECT_EQ(r.tags, 1u);
@@ -184,14 +178,14 @@ TEST(ParserExtra, IdMatch)
     EXPECT_EQ(r.selectors, 1u);
 }
 
-TEST(ParserExtra, IdMustMatchWholeValue)
+TEST(MatcherExtra, IdMustMatchWholeValue)
 {
     Out r = run("div#main", "<div id=\"mainx\">1</div><div id=\"mai\">2</div><div id=\"main\">3</div>");
     EXPECT_EQ(r.selectors, 1u);
     EXPECT_EQ(r.texts, L({"3"}));
 }
 
-TEST(ParserExtra, IdAndClassBothRequired)
+TEST(MatcherExtra, IdAndClassBothRequired)
 {
     EXPECT_EQ(run("div#m.c", "<div id=\"m\" class=\"c\">x</div>").selectors, 1u);
     EXPECT_EQ(run("div#m.c", "<div class=\"c\" id=\"m\">x</div>").selectors, 1u);
@@ -201,38 +195,38 @@ TEST(ParserExtra, IdAndClassBothRequired)
     EXPECT_EQ(run("div#m.c", "<div class=\"c\">x</div>").selectors, 0u);
 }
 
-TEST(ParserExtra, SingleQuotedValue)
+TEST(MatcherExtra, SingleQuotedValue)
 {
     Out r = run("div.a", "<div class='a'>x</div>");
     EXPECT_EQ(r.selectors, 1u);
     EXPECT_EQ(r.texts, L({"x"}));
 }
 
-TEST(ParserExtra, OtherQuoteInsideValue)
+TEST(MatcherExtra, OtherQuoteInsideValue)
 {
     EXPECT_EQ(run("div.a", "<div title='say \"hi\"' class=\"a\">x</div>").selectors, 1u);
 }
 
-TEST(ParserExtra, GreaterThanInsideQuotedValue)
+TEST(MatcherExtra, GreaterThanInsideQuotedValue)
 {
     Out r = run("div.a", "<div title=\"a>b\" class=\"a\">x</div>");
     EXPECT_EQ(r.selectors, 1u);
     EXPECT_EQ(r.texts, L({"x"}));
 }
 
-TEST(ParserExtra, OtherAttributesBeforeClass)
+TEST(MatcherExtra, OtherAttributesBeforeClass)
 {
     EXPECT_EQ(run("div.a", "<div data-id=\"5\" title=\"t\" class=\"a\">x</div>").selectors, 1u);
 }
 
-TEST(ParserExtra, LookalikeAttributeNamesIgnored)
+TEST(MatcherExtra, LookalikeAttributeNamesIgnored)
 {
     Out r = run("div.a", "<div classy=\"a\" id2=\"a\" data-id=\"a\" charset=\"a\" i=\"a\" c=\"a\">x</div>");
     EXPECT_EQ(r.attrs, 0u);
     EXPECT_EQ(r.selectors, 0u);
 }
 
-TEST(ParserExtra, AttributesOnNonSelectedTagStillCounted)
+TEST(MatcherExtra, AttributesOnNonSelectedTagStillCounted)
 {
     Out r = run("div", "<span id=\"a\" class=\"b\">x</span>");
     EXPECT_EQ(r.tags, 0u);
@@ -241,19 +235,19 @@ TEST(ParserExtra, AttributesOnNonSelectedTagStillCounted)
     EXPECT_EQ(r.selectors, 0u);
 }
 
-TEST(ParserExtra, ExtraSpacesBetweenAttributes)
+TEST(MatcherExtra, ExtraSpacesBetweenAttributes)
 {
     EXPECT_EQ(run("div.a", "<div   data-x=\"1\"    class=\"a\"  >x</div>").selectors, 1u);
 }
 
-TEST(ParserExtra, ClassOnWrongTag)
+TEST(MatcherExtra, ClassOnWrongTag)
 {
     EXPECT_EQ(run("div.a", "<span class=\"a\">x</span>").selectors, 0u);
 }
 
 // ---------------------------------------------------------- void tags
 
-TEST(ParserExtra, VoidTagsSkippedInsideMatch)
+TEST(MatcherExtra, VoidTagsSkippedInsideMatch)
 {
     Out r = run("div.x",
                 "<div class=\"x\"><br><img src=\"a.png\"><input type=\"text\"><hr><span>hi</span></div>"
@@ -262,7 +256,7 @@ TEST(ParserExtra, VoidTagsSkippedInsideMatch)
     EXPECT_EQ(r.texts, L({"hi", "two"}));
 }
 
-TEST(ParserExtra, AllVoidTagsAllForms)
+TEST(MatcherExtra, AllVoidTagsAllForms)
 {
     for (const char *t : kVoid)
     {
@@ -290,7 +284,7 @@ TEST(ParserExtra, AllVoidTagsAllForms)
     }
 }
 
-TEST(ParserExtra, ManyVoidTagsInARow)
+TEST(MatcherExtra, ManyVoidTagsInARow)
 {
     std::string html = "<div class=\"x\">";
     for (int i = 0; i < 2000; ++i)
@@ -302,7 +296,7 @@ TEST(ParserExtra, ManyVoidTagsInARow)
     EXPECT_EQ(r.texts, L({"end"}));
 }
 
-TEST(ParserExtra, LookalikeNonVoidTagsAreNotSkipped)
+TEST(MatcherExtra, LookalikeNonVoidTagsAreNotSkipped)
 {
     // colgroup, linkx, b, inputs, tracks must open/close like normal tags
     Out r = run("div.x",
@@ -312,14 +306,14 @@ TEST(ParserExtra, LookalikeNonVoidTagsAreNotSkipped)
     EXPECT_EQ(r.texts, L({"tBik", "next"}));
 }
 
-TEST(ParserExtra, VoidInsideListItems)
+TEST(MatcherExtra, VoidInsideListItems)
 {
     Out r = run("ul > li", "<ul><li>a<br>b</li><li>c</li></ul>");
     EXPECT_EQ(r.selectors, 2u);
     EXPECT_EQ(r.texts, L({"ab", "c"}));
 }
 
-TEST(ParserExtra, OnlyVoidInsideElement)
+TEST(MatcherExtra, OnlyVoidInsideElement)
 {
     Out r = run("p", "<p><br></p><p>x</p>");
     EXPECT_EQ(r.selectors, 2u);
@@ -329,7 +323,7 @@ TEST(ParserExtra, OnlyVoidInsideElement)
 // EXPECTED TO FAIL for now: selecting a void tag starts "collecting" and the capture only
 // ends at the parent's closing tag, so the callback gets "b". Fix: if current_tag_is_void()
 // in finish_tag_set_state, call on_match with empty text immediately instead of collecting.
-TEST(ParserExtra, VoidTagAsTargetDoesNotCaptureParentTail)
+TEST(MatcherExtra, VoidTagAsTargetDoesNotCaptureParentTail)
 {
     Out r = run("img", "<div>a<img>b</div>");
     EXPECT_EQ(r.selectors, 1u);
@@ -339,13 +333,13 @@ TEST(ParserExtra, VoidTagAsTargetDoesNotCaptureParentTail)
 
 // ------------------------------------------------------------ nesting
 
-TEST(ParserExtra, WithNotGoodChild)
+TEST(MatcherExtra, WithNotGoodChild)
 {
     Out r = run("div > p", "<div><div><p></p></div></div>");
     EXPECT_EQ(r.selectors, 1u);
 }
 
-TEST(ParserExtra, ChildOnlyInsideParent)
+TEST(MatcherExtra, ChildOnlyInsideParent)
 {
     Out r = run("ul > li", "<ul><li>a</li><li>b</li></ul><li>c</li>");
     EXPECT_EQ(r.tags, 3u); // ul + 2 li, the outer li is not a candidate
@@ -353,34 +347,34 @@ TEST(ParserExtra, ChildOnlyInsideParent)
     EXPECT_EQ(r.texts, L({"a", "b"}));
 }
 
-TEST(ParserExtra, ChildNotMatchedThroughGrandparent)
+TEST(MatcherExtra, ChildNotMatchedThroughGrandparent)
 {
     Out r = run("ul > li", "<ul><div><li>a</li></div></ul>");
     EXPECT_EQ(r.selectors, 0u);
 }
 
-TEST(ParserExtra, SiblingListsAfterEachOther)
+TEST(MatcherExtra, SiblingListsAfterEachOther)
 {
     Out r = run("ul > li", "<ul><li>a</li></ul><ol><li>b</li></ol><ul><li>c</li></ul>");
     EXPECT_EQ(r.selectors, 2u);
     EXPECT_EQ(r.texts, L({"a", "c"}));
 }
 
-TEST(ParserExtra, ThreeLevelSelector)
+TEST(MatcherExtra, ThreeLevelSelector)
 {
     Out r = run("div > ul > li", "<div><ul><li>a</li></ul></div><ul><li>b</li></ul>");
     EXPECT_EQ(r.selectors, 1u);
     EXPECT_EQ(r.texts, L({"a"}));
 }
 
-TEST(ParserExtra, ParentWithClass)
+TEST(MatcherExtra, ParentWithClass)
 {
     Out r = run("div.box > p", "<div class=\"box\"><p>in</p></div><div class=\"other\"><p>out</p></div>");
     EXPECT_EQ(r.selectors, 1u);
     EXPECT_EQ(r.texts, L({"in"}));
 }
 
-TEST(ParserExtra, DeepNestingStaysBalanced)
+TEST(MatcherExtra, DeepNestingStaysBalanced)
 {
     std::string html;
     for (int i = 0; i < 20; ++i)
@@ -395,7 +389,7 @@ TEST(ParserExtra, DeepNestingStaysBalanced)
     EXPECT_EQ(r.texts, L({"deep", "after"}));
 }
 
-TEST(ParserExtra, FormattedListWithWhitespaceAndVoid)
+TEST(MatcherExtra, FormattedListWithWhitespaceAndVoid)
 {
     Out r = run("ul > li", "<ul>\n  <li>a</li>\n  <li>b<br>c</li>\n</ul>");
     EXPECT_EQ(r.selectors, 2u);
@@ -404,35 +398,35 @@ TEST(ParserExtra, FormattedListWithWhitespaceAndVoid)
 
 // ------------------------------------------------------- full document
 
-TEST(ParserExtra, DocTitle)
+TEST(MatcherExtra, DocTitle)
 {
     Out r = run("title", kFullDoc);
     EXPECT_EQ(r.selectors, 1u);
     EXPECT_EQ(r.texts, L({"T"}));
 }
 
-TEST(ParserExtra, DocThreeLevelPath)
+TEST(MatcherExtra, DocThreeLevelPath)
 {
     Out r = run("html > head > title", kFullDoc);
     EXPECT_EQ(r.selectors, 1u);
     EXPECT_EQ(r.texts, L({"T"}));
 }
 
-TEST(ParserExtra, DocClassedParagraph)
+TEST(MatcherExtra, DocClassedParagraph)
 {
     Out r = run("p.note", kFullDoc);
     EXPECT_EQ(r.selectors, 1u);
     EXPECT_EQ(r.texts, L({"Hi"}));
 }
 
-TEST(ParserExtra, DocAllParagraphsInBody)
+TEST(MatcherExtra, DocAllParagraphsInBody)
 {
     Out r = run("body > p", kFullDoc);
     EXPECT_EQ(r.selectors, 2u);
     EXPECT_EQ(r.texts, L({"Hi", "Other"}));
 }
 
-TEST(ParserExtra, DocWrongPath)
+TEST(MatcherExtra, DocWrongPath)
 {
     EXPECT_EQ(run("head > p", kFullDoc).selectors, 0u);
     EXPECT_EQ(run("body > title", kFullDoc).selectors, 0u);
@@ -440,7 +434,7 @@ TEST(ParserExtra, DocWrongPath)
 
 // ------------------------------------------------------------ chunking
 
-TEST(ParserExtra, SameResultForAnyChunkSize)
+TEST(MatcherExtra, SameResultForAnyChunkSize)
 {
     ChunkInvariant("div", "<div>a</div><div>b</div>");
     ChunkInvariant("div.a", "<div class=\"a\">Hello <b>big</b> world</div>");
@@ -458,13 +452,13 @@ TEST(ParserExtra, SameResultForAnyChunkSize)
 // Run with --gtest_also_run_disabled_tests. Each one currently fails.
 
 // boolean attribute before class: attribute_position is not reset on ' ' in ATTRIBUTE_NAME
-TEST(ParserExtra, BooleanAttributeBeforeClass)
+TEST(MatcherExtra, BooleanAttributeBeforeClass)
 {
     EXPECT_EQ(run("button.a", "<button disabled class=\"a\">x</button>").selectors, 1u);
 }
 
 // only ' ' counts as whitespace inside a tag
-TEST(ParserExtra, NewlineAndTabInsideTag)
+TEST(MatcherExtra, NewlineAndTabInsideTag)
 {
     EXPECT_EQ(run("div.a", "<div\nclass=\"a\">x</div>").selectors, 1u);
     EXPECT_EQ(run("div.a", "<div\tclass=\"a\">x</div>").selectors, 1u);
@@ -472,25 +466,25 @@ TEST(ParserExtra, NewlineAndTabInsideTag)
 }
 
 // class is compared against the whole attribute value
-TEST(ParserExtra, MultipleClassesInOneAttribute)
+TEST(MatcherExtra, MultipleClassesInOneAttribute)
 {
     EXPECT_EQ(run("div.a", "<div class=\"a b\">x</div><div class=\"b a\">y</div>").selectors, 2u);
 }
 
 // void tags are lowercased for matching, selector tag names are not
-TEST(ParserExtra, UppercaseTagNames)
+TEST(MatcherExtra, UppercaseTagNames)
 {
     EXPECT_EQ(run("div", "<DIV>x</DIV>").selectors, 1u);
 }
 
 // ATTRIBUTE_VALUE_START waits for a quote and swallows '>'
-TEST(ParserExtra, UnquotedAttributeValue)
+TEST(MatcherExtra, UnquotedAttributeValue)
 {
     EXPECT_EQ(run("div.a", "<div class=a>x</div><div class=a>y</div>").selectors, 2u);
 }
 
 // comments are parsed like tags
-TEST(ParserExtra, CommentsIgnored)
+TEST(MatcherExtra, CommentsIgnored)
 {
     Out r = run("div", "<!-- <div>fake</div> --><div>real</div>");
     EXPECT_EQ(r.selectors, 1u);
@@ -498,38 +492,38 @@ TEST(ParserExtra, CommentsIgnored)
 }
 
 // script content is parsed like markup
-TEST(ParserExtra, ScriptContentIsRawText)
+TEST(MatcherExtra, ScriptContentIsRawText)
 {
     Out r = run("div", "<script>if (a<b) { x = \"<div>\"; }</script><div>real</div>");
     EXPECT_EQ(r.selectors, 1u);
     EXPECT_EQ(r.texts, L({"real"}));
 }
 
-TEST(ParserExtra, DescendantSelector)
+TEST(MatcherExtra, DescendantSelector)
 {
     EXPECT_EQ(run("ul li", "<ul><div><li>x</li></div></ul>").selectors, 1u);
 }
 
 // ul > li must NOT match when a div sits between
-TEST(ParserExtra, DescendantNotChild)
+TEST(MatcherExtra, DescendantNotChild)
 {
     EXPECT_EQ(run("ul > li", "<ul><div><li>x</li></div></ul>").selectors, 0u);
 }
 
 // no ul above, no match
-TEST(ParserExtra, DescendantNeedsAncestor)
+TEST(MatcherExtra, DescendantNeedsAncestor)
 {
     EXPECT_EQ(run("ul li", "<li>x</li>").selectors, 0u);
 }
 
 // ancestor closed before li, no match
-TEST(ParserExtra, DescendantAfterAncestorClosed)
+TEST(MatcherExtra, DescendantAfterAncestorClosed)
 {
     EXPECT_EQ(run("ul li", "<ul></ul><li>x</li>").selectors, 0u);
 }
 
 // deeper nesting
-TEST(ParserExtra, DescendantDeep)
+TEST(MatcherExtra, DescendantDeep)
 {
     Out r = run("ul li", "<ul><div><p><li>x</li></p></div></ul>");
     EXPECT_EQ(r.selectors, 1u);
@@ -1051,36 +1045,23 @@ TEST(V3Fixed, DeeperThanMaxDepth)
 
 TEST(V3Fixed, FinishEmitsOpenElements)
 {
-    SelectorLexer lexer;
-    lexer.query("div");
-    SelectorParser selector;
-    selector.parsring(lexer);
-
-    Parser parser;
+    fasthtml::Matcher matcher(fasthtml::Selector::compile("div").value());
     std::vector<std::string> texts;
-    parser.set_match_callback(collect, &texts);
-    const std::string html = "<div>abc<div>d";
-    parser.parsring(html.data(), html.size(), selector);
+    matcher.on_match(collect, &texts);
+    matcher.feed("<div>abc<div>d");
     EXPECT_EQ(texts.size(), 0u);
-    parser.finish();
+    matcher.finish();
     EXPECT_EQ(texts, L({"d", "abcd"}));
 }
 
 TEST(V3Fixed, ResetStartsOverKeepsCallback)
 {
-    SelectorLexer lexer;
-    lexer.query("p");
-    SelectorParser selector;
-    selector.parsring(lexer);
-
-    Parser parser;
+    fasthtml::Matcher matcher(fasthtml::Selector::compile("p").value());
     std::vector<std::string> texts;
-    parser.set_match_callback(collect, &texts);
-    const std::string a = "<p>one</p><div><p>open";
-    parser.parsring(a.data(), a.size(), selector);
-    parser.reset();
-    const std::string b = "<p>two</p>";
-    parser.parsring(b.data(), b.size(), selector);
-    EXPECT_EQ(parser.get_selector_match_count(), 1u);
+    matcher.on_match(collect, &texts);
+    matcher.feed("<p>one</p><div><p>open");
+    matcher.reset();
+    matcher.feed("<p>two</p>");
+    EXPECT_EQ(matcher.match_count(), 1u);
     EXPECT_EQ(texts, L({"one", "two"}));
 }

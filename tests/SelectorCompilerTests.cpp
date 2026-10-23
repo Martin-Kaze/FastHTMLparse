@@ -1,22 +1,26 @@
 #include <gtest/gtest.h>
 
-#include "Selector/SelectorLexer.hpp"
-#include "Selector/SelectorParser.hpp"
+#include "selector_compiler.hpp"
+#include "selector_lexer.hpp"
+
+using fasthtml::detail::SelectorCompiler;
+using fasthtml::detail::SelectorLexer;
+using Relation = SelectorCompiler::Relation;
 
 
-TEST(SelectorParser, TagWithClass)
+TEST(SelectorCompiler, TagWithClass)
 {
     SelectorLexer lexer;
 
     std::string input = "div.product";
-    lexer.query(input);
+    lexer.tokenize(input);
 
-    SelectorParser parser;
-    parser.parsring(lexer);
+    SelectorCompiler parser;
+    parser.compile(lexer);
 
-    const auto *parts = parser.get_parts();
+    const auto *parts = parser.parts();
 
-    EXPECT_EQ(parser.get_count(), 1);
+    EXPECT_EQ(parser.part_count(), 1);
     EXPECT_EQ( std::string(parts[0].tag.ptr, parts[0].tag.length), "div");
 
     EXPECT_EQ(
@@ -24,22 +28,22 @@ TEST(SelectorParser, TagWithClass)
         "product");
 
     EXPECT_EQ(parts[0].relation,
-              SelectorParser::Relation::ROOT);
+              Relation::root);
 }
 
-TEST(SelectorParser, TagWithId)
+TEST(SelectorCompiler, TagWithId)
 {
     SelectorLexer lexer;
 
     std::string input = "div#main";
-    lexer.query(input);
+    lexer.tokenize(input);
 
-    SelectorParser parser;
-    parser.parsring(lexer);
+    SelectorCompiler parser;
+    parser.compile(lexer);
 
-    const auto *parts = parser.get_parts();
+    const auto *parts = parser.parts();
 
-    EXPECT_EQ(parser.get_count(), 1);
+    EXPECT_EQ(parser.part_count(), 1);
     EXPECT_EQ( std::string(parts[0].tag.ptr, parts[0].tag.length), "div");
 
     EXPECT_EQ(
@@ -47,22 +51,22 @@ TEST(SelectorParser, TagWithId)
         "main");
 
     EXPECT_EQ(parts[0].relation,
-              SelectorParser::Relation::ROOT);
+              Relation::root);
 }
 
-TEST(SelectorParser, TagWithIdAndClass)
+TEST(SelectorCompiler, TagWithIdAndClass)
 {
     SelectorLexer lexer;
 
     std::string input = "div#main.product";
-    lexer.query(input);
+    lexer.tokenize(input);
 
-    SelectorParser parser;
-    parser.parsring(lexer);
+    SelectorCompiler parser;
+    parser.compile(lexer);
 
-    const auto *parts = parser.get_parts();
+    const auto *parts = parser.parts();
 
-    EXPECT_EQ(parser.get_count(), 1);
+    EXPECT_EQ(parser.part_count(), 1);
 
     EXPECT_EQ( std::string(parts[0].tag.ptr, parts[0].tag.length), "div");
 
@@ -76,22 +80,22 @@ TEST(SelectorParser, TagWithIdAndClass)
         "product");
 
     EXPECT_EQ(parts[0].relation,
-              SelectorParser::Relation::ROOT);
+              Relation::root);
 }
 
-TEST(SelectorParser, ClassThenId)
+TEST(SelectorCompiler, ClassThenId)
 {
     SelectorLexer lexer;
 
     std::string input = "div.product#main";
-    lexer.query(input);
+    lexer.tokenize(input);
 
-    SelectorParser parser;
-    parser.parsring(lexer);
+    SelectorCompiler parser;
+    parser.compile(lexer);
 
-    const auto *parts = parser.get_parts();
+    const auto *parts = parser.parts();
 
-    EXPECT_EQ(parser.get_count(), 1);
+    EXPECT_EQ(parser.part_count(), 1);
 
     EXPECT_EQ( std::string(parts[0].tag.ptr, parts[0].tag.length), "div");
 
@@ -106,19 +110,19 @@ TEST(SelectorParser, ClassThenId)
         "main");
 }
 
-TEST(SelectorParser, MultipleModifiers)
+TEST(SelectorCompiler, MultipleModifiers)
 {
     SelectorLexer lexer;
 
     std::string input = "div#main.product";
-    lexer.query(input);
+    lexer.tokenize(input);
 
-    SelectorParser parser;
-    parser.parsring(lexer);
+    SelectorCompiler parser;
+    parser.compile(lexer);
 
-    const auto *parts = parser.get_parts();
+    const auto *parts = parser.parts();
 
-    EXPECT_EQ(parser.get_count(), 1);
+    EXPECT_EQ(parser.part_count(), 1);
 
     EXPECT_EQ( std::string(parts[0].tag.ptr, parts[0].tag.length), "div");
 
@@ -133,19 +137,19 @@ TEST(SelectorParser, MultipleModifiers)
         "product");
 }
 
-TEST(SelectorParser, ModifiersWithChild)
+TEST(SelectorCompiler, ModifiersWithChild)
 {
     SelectorLexer lexer;
 
     std::string input = "div#main.product>p.title";
-    lexer.query(input);
+    lexer.tokenize(input);
 
-    SelectorParser parser;
-    parser.parsring(lexer);
+    SelectorCompiler parser;
+    parser.compile(lexer);
 
-    const auto *parts = parser.get_parts();
+    const auto *parts = parser.parts();
 
-    EXPECT_EQ(parser.get_count(), 2);
+    EXPECT_EQ(parser.part_count(), 2);
 
     // Part 0
     EXPECT_EQ( std::string(parts[0].tag.ptr, parts[0].tag.length), "div");
@@ -161,7 +165,7 @@ TEST(SelectorParser, ModifiersWithChild)
         "product");
 
     EXPECT_EQ(parts[0].relation,
-              SelectorParser::Relation::ROOT);
+              Relation::root);
 
     // Part 1
     EXPECT_EQ( std::string(parts[1].tag.ptr, parts[1].tag.length), "p");
@@ -172,22 +176,22 @@ TEST(SelectorParser, ModifiersWithChild)
         "title");
 
     EXPECT_EQ(parts[1].relation,
-              SelectorParser::Relation::CHILD);
+              Relation::child);
 }
 
-TEST(SelectorParser, ModifiersWithDescendant)
+TEST(SelectorCompiler, ModifiersWithDescendant)
 {
     SelectorLexer lexer;
 
     std::string input = "div#main.product p.title";
-    lexer.query(input);
+    lexer.tokenize(input);
 
-    SelectorParser parser;
-    parser.parsring(lexer);
+    SelectorCompiler parser;
+    parser.compile(lexer);
 
-    const auto *parts = parser.get_parts();
+    const auto *parts = parser.parts();
 
-    EXPECT_EQ(parser.get_count(), 2);
+    EXPECT_EQ(parser.part_count(), 2);
 
     EXPECT_EQ( std::string(parts[0].tag.ptr, parts[0].tag.length), "div");
 
@@ -202,7 +206,7 @@ TEST(SelectorParser, ModifiersWithDescendant)
         "product");
 
     EXPECT_EQ(parts[0].relation,
-              SelectorParser::Relation::ROOT);
+              Relation::root);
 
     EXPECT_EQ( std::string(parts[1].tag.ptr, parts[1].tag.length), "p");
 
@@ -212,5 +216,5 @@ TEST(SelectorParser, ModifiersWithDescendant)
         "title");
 
     EXPECT_EQ(parts[1].relation,
-              SelectorParser::Relation::DESCENDANT);
+              Relation::descendant);
 }
