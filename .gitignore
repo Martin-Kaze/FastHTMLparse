@@ -33,3 +33,6 @@ nolto.txt
 # OS
 .DS_Store
 Thumbs.db
+
+# Rust build output of bench/other/rust
+target/

@@ -1,0 +1,12 @@
+[package]
+name = "other_bench"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lol_html = "3.0.2"
+scraper = "0.29.0"
+
+[profile.release]
+lto = true
+codegen-units = 1

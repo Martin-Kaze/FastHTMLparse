@@ -144,7 +144,7 @@ Ryzen 5 5600H, Windows, Clang (MSYS2 clang64), `-O3 -march=native`, LTO, "Best p
 | v3b | attribute names read at once | ~960 MB/s |
 | v3c | `<script>`/`<style>` content skipped with `memchr` | ~1340 MB/s |
 | v3d | a whole tag in one loop pass (no state hand-offs) | **~1500–1610 MB/s** |
-| 1.0 | v3d + correctness fixes + library API | same as v3d within noise |
+| 1.0 | v3d + correctness fixes + library API | ~1450–1550 MB/s (0–5% below v3d) |
 
 \* measured in a power-saving mode, so not directly comparable.
 
@@ -163,6 +163,26 @@ On Linux/macOS: `./bench/bench.sh big.html div some-id some-class ./build/fastht
 which is the best guide for the next optimization.
 
 Benchmark tips: use the same file, the same power mode and a quiet machine; differences under ~10% are noise.
+
+### Compared with other libraries
+
+Same machine, same 139 MB file, MB/s for parse + match (higher is better). Every library reported exactly
+the same match count before its time was used.
+
+| Selector | fasthtml | lol-html | lexbor | selectolax | html5ever + scraper |
+|---|---:|---:|---:|---:|---:|
+| `div` | **1,503** | 1,048 | 159 | 166 | 60 |
+| `a` | **1,486** | 801 | 162 | 163 | 61 |
+| `a.external` | **1,359** | 746 | 162 | 166 | 59 |
+| `div .mw-heading` | **1,210** | 403 | 162 | 167 | 57 |
+
+- **lol-html** (Cloudflare, Rust) is the closest match: it also streams and matches selectors without a tree.
+  fasthtml is 1.4–3× faster than it.
+- **lexbor, selectolax, html5ever, lxml** build a full HTML5 DOM you can query many times. That is much more work,
+  so being ~9–25× faster than them is expected and is not a like-for-like contest.
+- lxml (libxml2) only reads the first of the 100 joined pages, so it is compared on a single page only (~50 MB/s).
+
+All selectors, the single-page results, versions and how to re-run: [`bench/OTHER_PARSERS.md`](bench/OTHER_PARSERS.md).
 
 ---
 
@@ -197,6 +217,8 @@ Roughly in order of expected benefit:
 7. **More HTML.** Decode entities in the returned text, treat `<textarea>`/`<title>` as raw text,
    more implied end tags (`<p>` closed by block elements).
 8. **Several selectors in one pass.** Up to 32 parts fit in one bitmask, so a few selectors could share a single read of the document.
+9. **Faster descendant selectors.** `div .mw-heading` runs at ~1210 MB/s against ~1500 for `div > div`;
+   it is still 3× lol-html, but it is the slowest case.
 
 ---
 
