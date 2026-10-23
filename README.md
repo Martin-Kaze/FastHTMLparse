@@ -255,6 +255,25 @@ examples/                       small command-line programs
 
 ---
 
+## Who did what
+
+The parser is my own work: the state machine, the bitmask matching, the per-selector templates,
+the `memchr` skipping and every speed-up from V1 (~150 MB/s) to v3d (~1600 MB/s), plus the first test suites.
+That history is in the commits up to `v3d` (tags `v3b`, `v3c`, `v3d`, and branches `parser-v1`, `parser-v2`).
+
+After v3d I used AI assistants (Claude) for:
+
+- **bug fixes and tests:** the `v3-final` commit (comments, `</script>`, stray end tags, nested matches,
+  selector validation) and the extra tests for them;
+- **packaging:** the 1.0.0 library layout and public header. This commit renamed my files
+  (`Parser.cpp` → `src/engine.cpp`, `SelectorParser` → `selector_compiler`), so `git blame` shows it
+  for code that is older. See the `v3` branch for the original files and their history;
+- **docs and benchmarks:** this README and the comparison with other libraries in `bench/other/`.
+
+Commits with AI help are marked `Co-Authored-By: Claude`.
+
+---
+
 ## License
 
 MIT, see [LICENSE](LICENSE).
