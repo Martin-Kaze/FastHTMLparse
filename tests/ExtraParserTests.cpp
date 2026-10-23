@@ -883,34 +883,204 @@ TEST(V3Mix, WikiLikeSnippet)
     ChunkInvariant("div#m.nav", html);
 }
 
-// ----------------------------- known open bugs (--gtest_also_run_disabled_tests)
+// ------------------------------------------- former known bugs, fixed after v3d
 
-// bug 4: nested matches lose the outer element's text
-TEST(V3Known, DISABLED_NestedMatchesKeepOuterText)
+// bug 4: nested matches keep the outer element's text
+TEST(V3Fixed, NestedMatchesKeepOuterText)
 {
     EXPECT_EQ(run("div div", "<div><div><div>a</div>b</div></div>").texts, L({"a", "ab"}));
 }
 
-// bug 3: an unclosed <p> makes depth drift, <a> looks like a child of the closed div
-TEST(V3Known, DISABLED_UnclosedChildDoesNotLeak)
+// bug 3: an unclosed <p> no longer makes depth drift
+TEST(V3Fixed, UnclosedChildDoesNotLeak)
 {
     EXPECT_EQ(run("div > a", "<div><p>x</div><a>q</a>").selectors, 0u);
 }
 
-// "</>" should be ignored, not close the div
-TEST(V3Known, DISABLED_EmptyEndTagIgnored)
+// "</>" is ignored, it does not close the div
+TEST(V3Fixed, EmptyEndTagIgnored)
 {
     EXPECT_EQ(run("div", "<div>a</>b</div>").texts, L({"ab"}));
 }
 
 // "<!-->" closes the comment per spec
-TEST(V3Known, DISABLED_AbruptCommentClose)
+TEST(V3Fixed, AbruptCommentClose)
 {
     EXPECT_EQ(run("div", "<!--><div>t</div>").selectors, 1u);
 }
 
-// "</scriptx" must not end the script
-TEST(V3Known, DISABLED_ScriptEndNeedsDelimiter)
+// "</scriptx" does not end the script
+TEST(V3Fixed, ScriptEndNeedsDelimiter)
 {
     EXPECT_EQ(run("div", "<script></scriptx><div>fake</div></script><div>t</div>").texts, L({"t"}));
+}
+
+// ---------------------------------------------------------------- comments
+
+TEST(V3Fixed, CommentEdgeForms)
+{
+    Out r = run("div", "<!--><div>a</div><!---><div>b</div><!----><div>c</div><!-- x --><div>d</div>");
+    EXPECT_EQ(r.selectors, 4u);
+    EXPECT_EQ(r.texts, L({"a", "b", "c", "d"}));
+}
+
+TEST(V3Fixed, CommentChunkInvariant)
+{
+    ChunkInvariant("div", "<!-- a - b -- c ---><div>t</div><!--><div>u</div><!-- <div>x</div> -->");
+}
+
+// ------------------------------------------------------------- raw text end
+
+TEST(V3Fixed, ScriptEndVariants)
+{
+    const char *html = "<script></scriptx>no</script ><div>a</div><style>x</style/><div>b</div>"
+                       "<script>1</SCRIPT\n><div>c</div>";
+    Out r = run("div", html);
+    EXPECT_EQ(r.selectors, 3u);
+    EXPECT_EQ(r.texts, L({"a", "b", "c"}));
+    ChunkInvariant("div", html);
+}
+
+// --------------------------------------------------------- bogus end tags
+
+TEST(V3Fixed, BogusEndTags)
+{
+    Out r = run("div", "<div>a</ x>b</3>c</>d</div><div>e</div>");
+    EXPECT_EQ(r.selectors, 2u);
+    EXPECT_EQ(r.texts, L({"abcd", "e"}));
+    ChunkInvariant("div", "<div>a</ x>b</3>c</>d</div><div>e</div>");
+}
+
+// ---------------------------------------------------------- nested captures
+
+TEST(V3Fixed, NestedSameTagInnerFirst)
+{
+    Out r = run("div", "<div>a<div>b</div>c</div>");
+    EXPECT_EQ(r.selectors, 2u);
+    EXPECT_EQ(r.texts, L({"b", "abc"}));
+}
+
+TEST(V3Fixed, NestedDifferentSelectorsParts)
+{
+    Out r = run("li", "<ul><li>a<ul><li>b</li></ul></li></ul>");
+    EXPECT_EQ(r.selectors, 2u);
+    EXPECT_EQ(r.texts, L({"b", "ab"}));
+}
+
+TEST(V3Fixed, CallbacksEqualMatchesWhenAllClosed)
+{
+    Out r = run("div", "<div><div><div>a</div><p>b</p></div><div>c</div></div><div>d</div>");
+    EXPECT_EQ(r.selectors, 5u);
+    EXPECT_EQ(r.texts.size(), 5u);
+}
+
+TEST(V3Fixed, NestedChunkInvariant)
+{
+    ChunkInvariant("div", "<div>a<div>b<div>c</div>d</div>e</div>");
+    ChunkInvariant("div div", "<div><div><div>a</div>b</div></div>");
+}
+
+// ------------------------------------------------------- close by tag name
+
+TEST(V3Fixed, StrayEndTagIgnored)
+{
+    Out r = run("div", "<div>a</span>b</div><div>c</div>");
+    EXPECT_EQ(r.texts, L({"ab", "c"}));
+}
+
+TEST(V3Fixed, VoidEndTagIgnored)
+{
+    EXPECT_EQ(run("div", "<div>a<br></br>b</div>").texts, L({"ab"}));
+}
+
+TEST(V3Fixed, AncestorCloseEndsUnclosedCapture)
+{
+    Out r = run(".x", "<div><p class=\"x\">a</div>b");
+    EXPECT_EQ(r.selectors, 1u);
+    EXPECT_EQ(r.texts, L({"a"}));
+}
+
+TEST(V3Fixed, DescendantNotLeakedAfterUnclosedChild)
+{
+    EXPECT_EQ(run("div a", "<div><p>x</div><a>q</a>").selectors, 0u);
+}
+
+TEST(V3Fixed, UppercaseEndTagClosesByName)
+{
+    Out r = run("div > a", "<DIV><P>x</Div><a>q</a><div><a>r</A></div>");
+    EXPECT_EQ(r.selectors, 1u);
+    EXPECT_EQ(r.texts, L({"r"}));
+}
+
+TEST(V3Fixed, ImpliedEndOfListItems)
+{
+    Out r = run("ul > li", "<ul><li>a<li>b<li>c</ul>");
+    EXPECT_EQ(r.selectors, 3u);
+    EXPECT_EQ(r.texts, L({"a", "b", "c"}));
+}
+
+TEST(V3Fixed, ImpliedEndOfParagraphs)
+{
+    Out r = run("body > p", "<body><p>a<p>b</body>");
+    EXPECT_EQ(r.selectors, 2u);
+    EXPECT_EQ(r.texts, L({"a", "b"}));
+}
+
+TEST(V3Fixed, CloseByNameChunkInvariant)
+{
+    ChunkInvariant("div > a", "<div><p>x</div><a>q</a><div><a>r</a></span></div>");
+    ChunkInvariant("ul > li", "<ul><li>a<li>b<li>c</ul><li>d</li>");
+}
+
+TEST(V3Fixed, DeeperThanMaxDepth)
+{
+    std::string html;
+    for (int i = 0; i < 1100; ++i)
+        html += "<div>";
+    html += "<p class=\"x\">t</p>";
+    for (int i = 0; i < 1100; ++i)
+        html += "</div>";
+    html += "<p class=\"x\">u</p>";
+
+    Out r = run(".x", html.c_str());
+    EXPECT_EQ(r.selectors, 2u);
+    EXPECT_EQ(r.texts, L({"", "u"})); // too deep to track: matched, but no text
+}
+
+// ---------------------------------------------------------- finish / reset
+
+TEST(V3Fixed, FinishEmitsOpenElements)
+{
+    SelectorLexer lexer;
+    lexer.query("div");
+    SelectorParser selector;
+    selector.parsring(lexer);
+
+    Parser parser;
+    std::vector<std::string> texts;
+    parser.set_match_callback(collect, &texts);
+    const std::string html = "<div>abc<div>d";
+    parser.parsring(html.data(), html.size(), selector);
+    EXPECT_EQ(texts.size(), 0u);
+    parser.finish();
+    EXPECT_EQ(texts, L({"d", "abcd"}));
+}
+
+TEST(V3Fixed, ResetStartsOverKeepsCallback)
+{
+    SelectorLexer lexer;
+    lexer.query("p");
+    SelectorParser selector;
+    selector.parsring(lexer);
+
+    Parser parser;
+    std::vector<std::string> texts;
+    parser.set_match_callback(collect, &texts);
+    const std::string a = "<p>one</p><div><p>open";
+    parser.parsring(a.data(), a.size(), selector);
+    parser.reset();
+    const std::string b = "<p>two</p>";
+    parser.parsring(b.data(), b.size(), selector);
+    EXPECT_EQ(parser.get_selector_match_count(), 1u);
+    EXPECT_EQ(texts, L({"one", "two"}));
 }

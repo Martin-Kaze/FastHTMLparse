@@ -44,6 +44,7 @@ add_executable(selector_tests
     tests/SelectorParserTests.cpp
     tests/ParserTests.cpp
     tests/ExtraParserTests.cpp
+    tests/SelectorFixTests.cpp
     src/Selector/SelectorLexer.cpp
     src/Selector/SelectorParser.cpp
     src/Parser.cpp

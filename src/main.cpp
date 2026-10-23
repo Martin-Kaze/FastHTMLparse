@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <chrono>
 #include <fstream>
+#include <cstdio>
 #include <iostream>
 #include <string>
 #include <string_view>
@@ -33,12 +34,15 @@ int main(int argc, char **argv)
     std::vector<char> data(size);
     f.read(data.data(), static_cast<std::streamsize>(size));
 
-    // selector parsed once; `query` must outlive the lexer
-    
+    // selector parsed once (the lexer keeps its own copy of the text)
     SelectorLexer lexer;
     lexer.query(query);
     SelectorParser selectorParser;
-    selectorParser.parsring(lexer);
+    if (!selectorParser.parsring(lexer))
+    {
+        std::cerr << "BAD SELECTOR: " << selectorParser.error() << "\n";
+        return 1;
+    }
 
     constexpr size_t CHUNK = 64 * 1024;
     constexpr int RUNS = 7;
@@ -56,6 +60,7 @@ int main(int argc, char **argv)
         auto t0 = std::chrono::steady_clock::now();
         for (size_t off = 0; off < size; off += CHUNK)
             parser.parsring(data.data() + off, std::min(CHUNK, size - off), selectorParser);
+        parser.finish(); // emits elements still open at the end
         auto t1 = std::chrono::steady_clock::now();
 
         best = std::min(best, std::chrono::duration<double>(t1 - t0).count());

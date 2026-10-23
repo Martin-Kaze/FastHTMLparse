@@ -1,4 +1,5 @@
 param($Old = "v3a.txt", $New = "new.txt")
+foreach ($f in $Old, $New) { if (-not (Test-Path $f)) { throw "file not found: $f" } }
 $rx = '^(\d)\s+(.+?)\s+sel=(\d+) cb=(\d+)\s+(\d+) MB/s'
 $a = gc $Old | % { [regex]::Match($_, $rx) } | ? Success
 $b = gc $New | % { [regex]::Match($_, $rx) } | ? Success
